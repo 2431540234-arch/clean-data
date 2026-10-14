@@ -12,10 +12,12 @@ class AuditLogOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    user_id: int
-    dataset_id: int | None
+    user_id: int | None
+    project_id: int | None
+    entity_type: str
+    entity_id: int | None
     action: str
-    before_version: int | None
-    after_version: int | None
-    detail: dict[str, Any]
+    old_value: dict[str, Any] | None
+    new_value: dict[str, Any] | None
+    ip_address: str | None
     created_at: datetime

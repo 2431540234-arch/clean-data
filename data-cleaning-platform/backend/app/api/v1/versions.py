@@ -50,6 +50,4 @@ def restore_version(
     db: Session = Depends(get_db),
 ) -> DatasetVersionOut:
     """Khôi phục một phiên bản cụ thể trong lịch sử thành phiên bản hiện tại."""
-    raise NotImplementedError(
-        "TODO: set is_current=True cho version_id, False cho các version khác."
-    )
+    raise NotImplementedError("TODO: đặt datasets.current_version_id = version_id.")

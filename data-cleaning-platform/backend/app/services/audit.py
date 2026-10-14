@@ -9,29 +9,36 @@ from app.models.audit_log import AuditLog
 
 def log_action(
     db: Session,
-    user_id: int,
+    user_id: int | None,
     action: str,
-    dataset_id: int | None = None,
-    before_version: int | None = None,
-    after_version: int | None = None,
-    detail: dict[str, Any] | None = None,
+    entity_type: str,
+    entity_id: int | None = None,
+    project_id: int | None = None,
+    old_value: dict[str, Any] | None = None,
+    new_value: dict[str, Any] | None = None,
+    ip_address: str | None = None,
 ) -> AuditLog:
     """Tạo một dòng audit log mới và commit vào DB.
 
     Args:
-        user_id: người thực hiện hành động.
+        user_id: người thực hiện hành động (None nếu hệ thống tự thực hiện).
         action: mã hành động, ví dụ "dataset.upload", "version.apply_rule", "user.lock".
-        dataset_id: dataset liên quan (None nếu là hành động quản trị không gắn dataset).
-        before_version / after_version: version_no trước/sau hành động (nếu có).
-        detail: thông tin bổ sung dạng JSON, ví dụ rule_json đã áp dụng.
+        entity_type: loại đối tượng bị tác động, ví dụ "dataset", "project", "user", "system".
+        entity_id: id của đối tượng đó (None nếu không gắn đối tượng cụ thể).
+        project_id: project liên quan (nếu có).
+        old_value / new_value: trạng thái trước/sau, ví dụ {"version_number": 1} và
+            {"version_number": 2, "rule": {...}}.
+        ip_address: địa chỉ IP của request (nếu có).
     """
     entry = AuditLog(
         user_id=user_id,
-        dataset_id=dataset_id,
+        project_id=project_id,
+        entity_type=entity_type,
+        entity_id=entity_id,
         action=action,
-        before_version=before_version,
-        after_version=after_version,
-        detail=detail or {},
+        old_value=old_value,
+        new_value=new_value,
+        ip_address=ip_address,
     )
     db.add(entry)
     db.commit()

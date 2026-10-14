@@ -15,25 +15,29 @@ def create_new_version(
     1. Đọc DataFrame của parent_version từ storage (app.services.storage).
     2. Chạy app.services.rules.engine.apply_rules.
     3. Lưu DataFrame kết quả lên storage, tạo DatasetVersion mới với
-       parent_version_id=parent_version.id, is_current=True (và set is_current=False
-       cho version cũ).
+       parent_version_id=parent_version.id, version_number = số lớn nhất hiện có + 1,
+       rồi gán datasets.current_version_id = id version mới; ghi cleaning_operations
+       (from_version_id -> to_version_id).
     4. Ghi audit log qua app.services.audit.log_action.
     """
-    raise NotImplementedError("TODO: áp dụng rule, lưu version mới, cập nhật is_current.")
+    raise NotImplementedError(
+        "TODO: áp dụng rule, lưu version mới, cập nhật datasets.current_version_id."
+    )
 
 
 def undo_version(db: Session, dataset_id: int, user_id: int) -> DatasetVersion:
-    """Quay lại version cha của version hiện tại (is_current=True).
+    """Quay lại version cha của version hiện tại (dataset.current_version_id).
 
-    Gợi ý cách làm: tìm current version, set is_current=False, set is_current=True
-    cho parent_version_id tương ứng; nếu không có parent thì raise lỗi nghiệp vụ.
+    Gợi ý cách làm: đặt dataset.current_version_id = current_version.parent_version_id;
+    nếu không có parent thì raise lỗi nghiệp vụ. Không xóa version nào để redo được.
     """
-    raise NotImplementedError("TODO: chuyển is_current về version cha.")
+    raise NotImplementedError("TODO: đặt current_version_id về parent_version_id.")
 
 
 def redo_version(db: Session, dataset_id: int, user_id: int) -> DatasetVersion:
-    """Tiến tới version con gần nhất (được tạo sau current, theo thời gian) của version hiện tại.
+    """Tiến tới version con gần nhất (version_number lớn nhất) của version hiện tại.
 
-    Gợi ý cách làm: tìm version có parent_version_id = current.id, is_current=True cho nó.
+    Gợi ý cách làm: tìm version có parent_version_id = current_version_id, rồi đặt
+    dataset.current_version_id = id của nó.
     """
-    raise NotImplementedError("TODO: chuyển is_current sang version con gần nhất.")
+    raise NotImplementedError("TODO: đặt current_version_id sang version con gần nhất.")

@@ -9,17 +9,25 @@ from app.schemas.rule import RuleSet
 
 
 class SuggestionOut(BaseModel):
-    """Một gợi ý làm sạch trả về cho client, gồm giải thích và rule JSON đề xuất."""
+    """Một gợi ý làm sạch trả về cho client: giải thích + rule JSON đề xuất.
+
+    Mức độ nghiêm trọng xem ở lỗi gắn qua issue_id.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     version_id: int
-    source: Literal["ai", "rule"]
-    rule_json: RuleSet
+    issue_id: int | None
+    suggestion_type: Literal["fix", "rule", "column_mapping"]
+    source: Literal["ai", "rule_engine"]
+    target_column: str | None
+    proposed_rule: RuleSet
     explanation: str
-    severity: Literal["high", "medium", "low"]
+    confidence: float | None
     status: Literal["pending", "accepted", "rejected"]
+    reviewed_by: int | None
+    reviewed_at: datetime | None
     created_at: datetime
 
 

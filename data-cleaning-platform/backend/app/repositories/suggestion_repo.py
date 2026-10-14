@@ -21,9 +21,12 @@ def create_suggestion(
     db: Session,
     version_id: int,
     source: str,
-    rule_json: dict[str, Any],
+    proposed_rule: dict[str, Any],
     explanation: str,
-    severity: str,
+    suggestion_type: str = "rule",
+    issue_id: int | None = None,
+    target_column: str | None = None,
+    confidence: float | None = None,
 ) -> Suggestion:
     """Tạo một gợi ý mới với status mặc định 'pending'."""
     raise NotImplementedError("TODO: tạo Suggestion mới, add/commit/refresh.")
@@ -31,4 +34,6 @@ def create_suggestion(
 
 def update_status(db: Session, suggestion: Suggestion, status: str) -> Suggestion:
     """Cập nhật trạng thái gợi ý ('accepted' hoặc 'rejected')."""
-    raise NotImplementedError("TODO: cập nhật suggestion.status và commit.")
+    raise NotImplementedError(
+        "TODO: cập nhật suggestion.status, reviewed_by, reviewed_at và commit."
+    )

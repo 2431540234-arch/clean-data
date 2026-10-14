@@ -16,8 +16,10 @@ def list_datasets_for_project(db: Session, project_id: int) -> list[Dataset]:
 
 
 def get_current_version(db: Session, dataset_id: int) -> DatasetVersion | None:
-    """Lấy version hiện tại (is_current=True) của một dataset."""
-    raise NotImplementedError("TODO: select DatasetVersion where dataset_id và is_current=True.")
+    """Lấy version hiện tại của một dataset (version mà datasets.current_version_id trỏ tới)."""
+    raise NotImplementedError(
+        "TODO: lấy Dataset rồi trả dataset.current_version (None nếu current_version_id NULL)."
+    )
 
 
 def get_version_by_id(db: Session, version_id: int) -> DatasetVersion | None:
@@ -26,7 +28,15 @@ def get_version_by_id(db: Session, version_id: int) -> DatasetVersion | None:
 
 
 def create_dataset(
-    db: Session, project_id: int, name: str, original_filename: str, created_by: int
+    db: Session,
+    project_id: int,
+    name: str,
+    original_filename: str,
+    uploaded_by: int,
+    file_type: str | None = None,
+    file_size: int | None = None,
+    encoding: str | None = None,
+    sheet_name: str | None = None,
 ) -> Dataset:
     """Tạo dataset mới thuộc project_id."""
     raise NotImplementedError("TODO: tạo Dataset mới, add/commit/refresh.")
@@ -35,14 +45,16 @@ def create_dataset(
 def create_version(
     db: Session,
     dataset_id: int,
-    version_no: int,
+    version_number: int,
     storage_path: str,
     row_count: int,
+    column_count: int,
     created_by: int,
     parent_version_id: int | None = None,
-    is_current: bool = True,
+    change_summary: str | None = None,
+    make_current: bool = True,
 ) -> DatasetVersion:
-    """Tạo một DatasetVersion mới. Nếu is_current=True, phải set is_current=False cho version cũ."""
+    """Tạo DatasetVersion mới; nếu make_current thì đặt datasets.current_version_id = id mới."""
     raise NotImplementedError(
-        "TODO: tạo DatasetVersion mới, cập nhật cờ is_current cho version cũ."
+        "TODO: tạo DatasetVersion mới; nếu make_current thì gán dataset.current_version_id."
     )

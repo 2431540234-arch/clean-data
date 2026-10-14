@@ -13,6 +13,10 @@ class QualityReportOut(BaseModel):
 
     id: int
     version_id: int
-    score: float
-    metrics: dict[str, Any]
+    overall_score: float
+    completeness: float | None
+    uniqueness: float | None
+    validity: float | None
+    consistency: float | None
+    issue_summary: dict[str, Any]
     created_at: datetime

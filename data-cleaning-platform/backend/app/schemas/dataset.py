@@ -14,23 +14,30 @@ class DatasetOut(BaseModel):
     project_id: int
     name: str
     original_filename: str
-    created_by: int
+    file_type: str | None
+    file_size: int | None
+    encoding: str | None
+    sheet_name: str | None
+    current_version_id: int | None
+    uploaded_by: int | None
     created_at: datetime
+    updated_at: datetime
 
 
 class DatasetVersionOut(BaseModel):
-    """Thông tin một phiên bản dataset trả về cho client."""
+    """Thông tin một phiên bản dataset (version hiện tại: DatasetOut.current_version_id)."""
 
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     dataset_id: int
-    version_no: int
+    version_number: int
     row_count: int
+    column_count: int
     parent_version_id: int | None
-    created_by: int
+    change_summary: str | None
+    created_by: int | None
     created_at: datetime
-    is_current: bool
 
 
 class DatasetPreviewRow(BaseModel):

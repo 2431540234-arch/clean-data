@@ -1,0 +1,27 @@
+name: Deploy
+
+# TODO: hoàn thiện workflow deploy khi merge vào nhánh main.
+# Gợi ý: build & push Docker image lên registry (GHCR/Docker Hub), sau đó gọi API/SSH
+# tới server production (hoặc platform như Render/Fly.io/Railway) để deploy phiên bản mới.
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: TODO - Build backend image
+        run: echo "TODO build docker image cho backend"
+
+      - name: TODO - Build frontend image
+        run: echo "TODO build docker image cho frontend"
+
+      - name: TODO - Push images to registry
+        run: echo "TODO đăng nhập và push image lên registry"
+
+      - name: TODO - Deploy to production
+        run: echo "TODO gọi lệnh deploy thật (SSH/API của platform)"

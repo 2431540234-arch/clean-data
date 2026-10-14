@@ -1,0 +1,9 @@
+/* CSS tùy chỉnh cho giao diện Streamlit. TODO: nạp file này bằng st.markdown(<style>...). */
+
+.block-container {
+    padding-top: 2rem;
+}
+
+.stAlert {
+    border-radius: 8px;
+}

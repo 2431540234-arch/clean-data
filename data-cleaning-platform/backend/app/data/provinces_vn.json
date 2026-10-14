@@ -1,0 +1,25 @@
+{
+  "_comment": "TODO: cập nhật đầy đủ 63 tỉnh/thành Việt Nam. Dưới đây chỉ là dữ liệu mẫu để minh họa cấu trúc dùng cho app.services.detectors.inconsistency.",
+  "provinces": [
+    {
+      "canonical_name": "TP. Hồ Chí Minh",
+      "aliases": ["HCM", "TP.HCM", "TPHCM", "TP HCM", "Ho Chi Minh", "Sài Gòn", "Saigon"]
+    },
+    {
+      "canonical_name": "Hà Nội",
+      "aliases": ["HN", "Ha Noi", "TP. Hà Nội", "TP Ha Noi"]
+    },
+    {
+      "canonical_name": "Đà Nẵng",
+      "aliases": ["DN", "Da Nang", "TP. Đà Nẵng"]
+    },
+    {
+      "canonical_name": "Cần Thơ",
+      "aliases": ["Can Tho", "TP. Cần Thơ"]
+    },
+    {
+      "canonical_name": "Hải Phòng",
+      "aliases": ["Hai Phong", "TP. Hải Phòng"]
+    }
+  ]
+}

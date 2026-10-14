@@ -1,0 +1,16 @@
+{
+  "ho_ten": ["họ tên", "ho ten", "full_name", "fullname", "ten", "tên", "name", "họ và tên"],
+  "email": ["mail", "e-mail", "địa chỉ email", "dia chi email"],
+  "so_dien_thoai": ["sdt", "sđt", "phone", "phone_number", "dien thoai", "điện thoại", "so dt", "mobile"],
+  "ngay_sinh": ["birthday", "birth_date", "date_of_birth", "dob", "ngay sinh"],
+  "dia_chi": ["address", "dia chi", "địa chỉ", "noi o", "nơi ở"],
+  "tinh_thanh": ["province", "city", "tinh", "tỉnh", "thanh pho", "thành phố", "tinh/thanh pho"],
+  "gioi_tinh": ["gender", "sex", "gioi tinh"],
+  "tuoi": ["age", "tuổi"],
+  "chuc_vu": ["position", "job_title", "chuc vu", "chức vụ"],
+  "phong_ban": ["department", "phong ban", "phòng ban"],
+  "luong": ["salary", "income", "lương", "thu nhap", "thu nhập"],
+  "ma_khach_hang": ["customer_id", "customer_code", "ma kh", "mã khách hàng", "ma_kh"],
+  "ma_nhan_vien": ["employee_id", "employee_code", "ma nv", "mã nhân viên", "ma_nv"],
+  "ngay_tao": ["created_at", "created_date", "ngay tao", "ngày tạo"]
+}

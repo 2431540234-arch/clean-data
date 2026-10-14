@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Môi trường / secret
+.env
+.env.*
+!.env.example
+
+# Dữ liệu tạm / upload
+*.parquet
+backend/tmp/
+backend/uploads/
+*.log
+
+# Streamlit
+frontend/.streamlit/secrets.toml
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.pid
+
+# Alembic (giữ migration, bỏ file tạm)
+*.sqlite3

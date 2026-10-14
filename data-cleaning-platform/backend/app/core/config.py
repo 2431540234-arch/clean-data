@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     """Tập hợp toàn bộ cấu hình của backend."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "../.env"),  # chạy từ backend/ hoặc từ gốc project
         env_file_encoding="utf-8",
         extra="ignore",
     )

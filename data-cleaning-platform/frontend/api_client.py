@@ -251,3 +251,53 @@ def suggest_mapping(token: str, version_id: int, target_schema: list[str]) -> di
         json=target_schema,
         timeout=120.0,  # tầng 2 có thể gọi AI nên chậm hơn
     )
+
+
+def generate_suggestions(token: str, version_id: int) -> list[dict[str, Any]]:
+    """Sinh gợi ý làm sạch mới cho một phiên bản (list[SuggestionOut]). Có thể gọi AI nên chậm."""
+    return request(
+        "POST",
+        "/api/v1/suggestions/generate",
+        token=token,
+        json={"version_id": version_id},
+        timeout=180.0,
+    )
+
+
+def list_suggestions(token: str, version_id: int) -> list[dict[str, Any]]:
+    """Mọi gợi ý đã có của một phiên bản (list[SuggestionOut])."""
+    return request("GET", f"/api/v1/suggestions/by-version/{version_id}", token=token)
+
+
+def decide_suggestion(token: str, suggestion_id: int, decision: str) -> dict[str, Any]:
+    """Chấp nhận ("accepted") hoặc từ chối ("rejected") một gợi ý (SuggestionOut)."""
+    return request(
+        "POST",
+        f"/api/v1/suggestions/{suggestion_id}/decision",
+        token=token,
+        json={"decision": decision},
+    )
+
+
+def preview_rules(
+    token: str, version_id: int, steps: list[dict[str, Any]], sample_rows: int = 50
+) -> dict[str, Any]:
+    """Xem trước kết quả khi áp dụng các bước rule (PreviewResult), chưa ghi dữ liệu thật."""
+    return request(
+        "POST",
+        "/api/v1/preview",
+        token=token,
+        json={"version_id": version_id, "rule_set": {"steps": steps}, "sample_rows": sample_rows},
+        timeout=120.0,
+    )
+
+
+def apply_rules(token: str, dataset_id: int, steps: list[dict[str, Any]]) -> dict[str, Any]:
+    """Áp dụng các bước rule lên phiên bản hiện tại, tạo phiên bản mới (DatasetVersionOut)."""
+    return request(
+        "POST",
+        f"/api/v1/versions/{dataset_id}/apply",
+        token=token,
+        json={"steps": steps},
+        timeout=180.0,
+    )

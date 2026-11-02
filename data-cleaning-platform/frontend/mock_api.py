@@ -10,6 +10,7 @@ Tài khoản mẫu:
     user@example.com  / User12345   (người dùng thường)
 """
 
+import os
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -21,9 +22,19 @@ import streamlit as st
 import mock_data
 import mock_mapping
 import mock_profiling
-from api_client import APIError
+import mock_rules
+import mock_suggest
+from api_client import _SERVER_ERROR_MESSAGE, APIError
 
 DEMO_HINT = "Tài khoản dùng thử: admin@example.com / Admin123! · user@example.com / User12345"
+
+# FRONTEND_MOCK_FAIL=suggestions,preview,versions: các nhóm API này luôn trả lỗi máy chủ (để thử
+# giao diện ở trạng thái lỗi). Chỉ có tác dụng ở chế độ mock.
+_FAIL_PREFIXES = tuple(
+    prefix.strip()
+    for prefix in os.environ.get("FRONTEND_MOCK_FAIL", "").split(",")
+    if prefix.strip()
+)
 
 _DB_KEY = "_mock_db"
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -140,6 +151,7 @@ def _seed() -> dict[str, Any]:
         "raw_files": {},  # dataset_id -> (bytes, loại file), để chọn lại sheet
         "profiles": {},  # version_id -> list[SchemaProfileOut]
         "quality": {},  # version_id -> QualityReportOut
+        "suggestions": [],  # SuggestionOut
         "next_dataset_id": 1,
         "next_version_id": 1,
         "next_id": 1,  # id chung cho profile/quality/...
@@ -225,6 +237,8 @@ def handle(
     raw: bool = False,
 ) -> Any:
     """Điểm vào duy nhất: thực thi một lời gọi API giả, trả dữ liệu hoặc raise APIError."""
+    if any(path.startswith(f"/api/v1/{prefix}") for prefix in _FAIL_PREFIXES):
+        raise APIError(500, _SERVER_ERROR_MESSAGE, "Mock: lỗi giả lập bởi FRONTEND_MOCK_FAIL")
     for route_method, pattern, handler, access in _ROUTES:
         match = pattern.match(path)
         if route_method != method or match is None:
@@ -566,3 +580,107 @@ def _suggest_mapping(call: Call) -> dict[str, str | None]:
         raise validation_error("body", "Danh sách cột chuẩn không được rỗng.")
     columns = [str(c) for c in db()["frames"][version["id"]].columns]
     return mock_mapping.suggest_mapping(columns, targets)
+
+
+# ---------------------------------------------------------------------------
+# Gợi ý, xem trước, áp dụng rule
+# ---------------------------------------------------------------------------
+
+
+@route("POST", "/suggestions/generate")
+def _generate_suggestions(call: Call) -> list[dict[str, Any]]:
+    assert call.user is not None
+    state = db()
+    version_id = (call.json or {}).get("version_id")
+    if not isinstance(version_id, int):
+        raise validation_error("version_id", "Thiếu version_id.")
+    version = _get_version(version_id, call.user)
+    state["suggestions"] = [s for s in state["suggestions"] if s["version_id"] != version["id"]]
+    now = _now()
+    created = []
+    for draft in mock_suggest.generate(state["frames"][version["id"]]):
+        item = {
+            "id": _next_id(),
+            "version_id": version["id"],
+            **draft,
+            "status": "pending",
+            "reviewed_by": None,
+            "reviewed_at": None,
+            "created_at": now,
+        }
+        state["suggestions"].append(item)
+        created.append(item)
+    return created
+
+
+@route("GET", r"/suggestions/by-version/(\d+)")
+def _list_suggestions(call: Call) -> list[dict[str, Any]]:
+    assert call.user is not None
+    version = _get_version(int(call.args[0]), call.user)
+    return [s for s in db()["suggestions"] if s["version_id"] == version["id"]]
+
+
+@route("POST", r"/suggestions/(\d+)/decision")
+def _decide_suggestion(call: Call) -> dict[str, Any]:
+    assert call.user is not None
+    item = next((s for s in db()["suggestions"] if s["id"] == int(call.args[0])), None)
+    if item is None:
+        raise APIError(404, "Không tìm thấy tài nguyên.")
+    _get_version(item["version_id"], call.user)
+    decision = (call.json or {}).get("decision")
+    if decision not in {"accepted", "rejected"}:
+        raise validation_error("decision", "Quyết định phải là accepted hoặc rejected.")
+    item.update(status=decision, reviewed_by=call.user["id"], reviewed_at=_now())
+    return item
+
+
+@route("POST", "/preview")
+def _preview(call: Call) -> dict[str, Any]:
+    assert call.user is not None
+    body = call.json or {}
+    version = _get_version(int(body.get("version_id", 0)), call.user)
+    try:
+        steps = mock_rules.validate_steps((body.get("rule_set") or {}).get("steps"))
+        sample_rows = max(1, min(int(body.get("sample_rows", 50)), 500))
+        result = mock_rules.compute_preview(db()["frames"][version["id"]], steps, sample_rows)
+    except mock_rules.RuleError as exc:
+        raise APIError(422, str(exc)) from exc
+    return {"version_id": version["id"], **result}
+
+
+def _summarize(steps: list[dict[str, Any]]) -> str:
+    return f"Áp dụng {len(steps)} bước làm sạch: " + ", ".join(
+        f"{s['op']}({s['column']})" if s.get("column") else s["op"] for s in steps
+    )
+
+
+@route("POST", r"/versions/(\d+)/apply")
+def _apply_rule_set(call: Call) -> dict[str, Any]:
+    assert call.user is not None
+    state = db()
+    dataset = _get_dataset(int(call.args[0]), call.user)
+    try:
+        steps = mock_rules.validate_steps((call.json or {}).get("steps"))
+        if not steps:
+            raise mock_rules.RuleError("Không có bước nào để áp dụng.")
+        parent_id = dataset["current_version_id"]
+        frame, _, _ = mock_rules.apply_steps(state["frames"][parent_id], steps)
+    except mock_rules.RuleError as exc:
+        raise APIError(422, str(exc)) from exc
+    versions = [v for v in state["versions"] if v["dataset_id"] == dataset["id"]]
+    version = {
+        "id": state["next_version_id"],
+        "dataset_id": dataset["id"],
+        "version_number": max(v["version_number"] for v in versions) + 1,
+        "row_count": len(frame),
+        "column_count": len(frame.columns),
+        "parent_version_id": parent_id,
+        "change_summary": _summarize(steps),
+        "created_by": call.user["id"],
+        "created_at": _now(),
+    }
+    state["next_version_id"] += 1
+    state["versions"].append(version)
+    state["frames"][version["id"]] = frame
+    dataset.update(current_version_id=version["id"], updated_at=_now())
+    return version

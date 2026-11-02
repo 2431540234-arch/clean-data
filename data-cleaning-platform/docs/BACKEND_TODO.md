@@ -92,7 +92,14 @@ status(pending|accepted|rejected), reviewed_by, reviewed_at, created_at`.
 | POST | `/versions/{dataset_id}/redo` | - | `DatasetVersionOut` |
 | POST | `/versions/{dataset_id}/restore/{version_id}` | - | `DatasetVersionOut` |
 
-Định dạng `RuleSet`/`RuleStep` giữ nguyên `app/schemas/rule.py` (frontend không đổi). Frontend gộp các
+Định dạng `RuleSet`/`RuleStep` giữ nguyên `app/schemas/rule.py` (frontend không đổi).
+
+Hợp đồng frontend (trang Gợi ý làm sạch) dựa vào:
+- `POST /suggestions/generate` **thay thế** gợi ý cũ của cùng `version_id` (không cộng dồn); trả `[]` khi không có gì cần làm sạch (frontend hiện "Dữ liệu đã sạch"). Gợi ý đã sinh được đọc lại bằng `GET /suggestions/by-version/{id}`.
+- `POST /suggestions/{id}/decision` cho phép đổi quyết định nhiều lần (accepted <-> rejected). Chấp nhận **không** áp dụng gì: chỉ `apply` mới tạo version.
+- `POST /preview`: `before_rows` là mẫu `sample_rows` dòng đầu (mọi giá trị dạng chuỗi, ô thiếu là `""`); `after_rows` là kết quả trên đúng mẫu đó, **giữ nguyên thứ tự dòng** (dòng bị xóa chỉ biến mất); `diffs[].row_index` là vị trí 0-based trong `before_rows`; `diffs` chỉ gồm cột có ở cả trước và sau (cột mới/đổi tên không có diff). Frontend dùng các quy ước này để tô màu ô thay đổi.
+- `POST /versions/{dataset_id}/apply`: body là `RuleSet` `{"steps": [...]}`; áp lên `current_version_id`, trả `DatasetVersionOut` của version mới (`parent_version_id` = version cũ); `422` + `detail` tiếng Việt khi rule sai (cột không tồn tại, op ngoài danh sách, danh sách bước rỗng).
+- Thứ tự bước frontend gửi: các bước làm sạch trước, các bước `rename_column` (từ trang Mapping) **sau cùng**, vì gợi ý được sinh theo tên cột hiện tại. Frontend gộp các
 `steps` của các gợi ý đã chấp nhận thành một `RuleSet` rồi gọi `preview` -> `apply`.
 Cần: `undo`/`redo` trả 4xx có thông báo rõ khi không còn bước để hoàn tác/làm lại
 (frontend hiển thị `detail` nguyên văn và tắt nút tương ứng).

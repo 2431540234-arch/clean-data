@@ -1,36 +1,30 @@
 /*
- * Design tokens + style tùy chỉnh (hướng "Minimal Ink"). Nạp một lần bởi components/theme.py.
- *
- * Nguyên tắc:
- *  - Màu trung tính dùng color-mix(currentColor, transparent) nên tự thích ứng nền sáng/tối.
- *  - Màu ngữ nghĩa (success/warning/error/primary-text) cũng pha với currentColor: nền sáng thì
- *    đậm hơn, nền tối thì nhạt hơn, nên luôn khớp theme THỰC TẾ của Streamlit (không dùng
- *    prefers-color-scheme vì người dùng có thể đổi theme trong menu Streamlit).
- *  - config.toml không có [theme] (nếu có, Streamlit ghim nền sáng) nên màu thương hiệu
- *    #2563EB được đặt lại bằng CSS ở mục "Màu thương hiệu" bên dưới.
- *  - Ưu tiên class tự đặt (.dc-*). Chỗ phải dùng selector nội bộ Streamlit đều có ghi chú
- *    "[nội bộ Streamlit 1.41.1]": cần rà lại khi nâng phiên bản streamlit.
+ * Design tokens + style tùy chỉnh (hướng "Minimal Ink", chỉ giao diện sáng). Nạp bởi components/theme.py.
+ * Màu nền/chữ/màu chính của widget Streamlit đặt ở .streamlit/config.toml ([theme]); file này chỉ
+ * chứa token cho component tự dựng (.dc-*) và vài tinh chỉnh nhỏ.
+ * Chỗ dùng selector nội bộ Streamlit có ghi chú "[nội bộ Streamlit 1.41.1]": rà lại khi nâng phiên bản.
  */
 
 :root {
-    /* Màu */
-    --c-primary: #2563eb; /* nền nút/biểu tượng; chữ trắng trên nền này đạt 5.2:1 */
-    --c-primary-hover: #1d4ed8;
-    --c-primary-text: color-mix(in srgb, #2563eb 65%, currentColor);
-    --c-success: color-mix(in srgb, #16a34a 65%, currentColor);
-    --c-warning: color-mix(in srgb, #d97706 65%, currentColor);
-    --c-error: color-mix(in srgb, #dc2626 65%, currentColor);
+    /* Màu (cố định, nền sáng; mọi cặp chữ/nền đạt WCAG AA >= 4.5:1) */
+    --c-primary: #2563eb; /* nền nút/biểu tượng, chữ trắng trên nền này đạt 5.2:1 */
+    --c-primary-text: #1d4ed8;
+    --c-primary-tint: #eff6ff;
+    --c-text-muted: #475569;
+    --c-border: #e2e8f0;
+    --c-border-strong: #cbd5e1;
 
-    --c-text-muted: color-mix(in srgb, currentColor 72%, transparent);
-    --c-border: color-mix(in srgb, currentColor 16%, transparent);
-    --c-border-strong: color-mix(in srgb, currentColor 30%, transparent);
-    --c-surface-muted: color-mix(in srgb, currentColor 5%, transparent);
-    --c-primary-tint: color-mix(in srgb, var(--c-primary) 10%, transparent);
+    --c-success: #166534;
+    --c-success-tint: #f0fdf4;
+    --c-success-border: #bbf7d0;
+    --c-warning: #92400e;
+    --c-warning-tint: #fffbeb;
+    --c-warning-border: #fde68a;
+    --c-error: #b91c1c;
+    --c-error-tint: #fef2f2;
+    --c-error-border: #fecaca;
 
-    /* Chữ */
-    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
-        "Noto Sans", sans-serif;
-    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    /* Cỡ chữ */
     --fs-12: 0.75rem;
     --fs-13: 0.8125rem;
     --fs-14: 0.875rem;
@@ -52,17 +46,12 @@
     --radius-sm: 6px;
     --radius-md: 10px;
     --radius-pill: 999px;
-    --shadow-pop: 0 4px 16px rgba(0, 0, 0, 0.2);
     --ease: 140ms ease;
 }
 
 /* ---------- Nền tảng ---------- */
 
-/* [nội bộ Streamlit 1.41.1] .stApp, .block-container */
-.stApp {
-    font-family: var(--font-sans);
-}
-
+/* [nội bộ Streamlit 1.41.1] .block-container */
 .block-container {
     max-width: 1200px;
     /* chừa chỗ cho thanh header cố định của Streamlit (cao ~3.75rem) */
@@ -90,65 +79,27 @@
     line-height: 1.25;
 }
 
-.stApp code {
-    font-family: var(--font-mono);
-    font-size: 0.9em;
-}
-
 /* [nội bộ Streamlit 1.41.1] data-testid của st.metric: số liệu thẳng hàng */
 [data-testid="stMetricValue"] {
     font-weight: 600;
     font-variant-numeric: tabular-nums;
 }
 
-/* ---------- Màu thương hiệu (thay cho theme.primaryColor) ---------- */
-
-/* [nội bộ Streamlit 1.41.1] data-testid/data-baseweb của nút chính, link, tab.
-   Khi thêm widget mới dùng màu chính (checkbox, toggle, slider...) cần rà lại ở đây. */
-[data-testid="stBaseButton-primary"],
-[data-testid="stBaseButton-primaryFormSubmit"] {
-    background-color: var(--c-primary);
-    border-color: var(--c-primary);
-    color: #fff;
-}
-
-[data-testid="stBaseButton-primary"]:hover,
-[data-testid="stBaseButton-primaryFormSubmit"]:hover {
-    background-color: var(--c-primary-hover);
-    border-color: var(--c-primary-hover);
-    color: #fff;
-}
-
-[data-testid="stMarkdownContainer"] a {
-    color: var(--c-primary-text);
-}
-
-[data-baseweb="tab-highlight"] {
-    background-color: var(--c-primary);
-}
-
-[data-baseweb="tab"][aria-selected="true"] {
-    color: var(--c-primary-text);
-}
-
-/* ---------- Tương tác ---------- */
-
-/* [nội bộ Streamlit 1.41.1] class của các loại nút */
+/* [nội bộ Streamlit 1.41.1] class của nút và alert */
 .stButton > button,
 .stDownloadButton > button,
 .stFormSubmitButton > button,
 .stLinkButton > a {
     border-radius: var(--radius-sm);
     font-weight: 500;
-    transition: background-color var(--ease), border-color var(--ease), color var(--ease),
-        box-shadow var(--ease);
+    transition: background-color var(--ease), border-color var(--ease), color var(--ease);
 }
 
 .stAlert {
     border-radius: var(--radius-sm);
 }
 
-/* Vòng focus rõ ràng khi điều hướng bằng bàn phím, đọc được trên cả nền sáng và tối */
+/* Vòng focus rõ ràng khi điều hướng bằng bàn phím */
 :focus-visible {
     outline: 2px solid var(--c-primary-text);
     outline-offset: 2px;
@@ -165,14 +116,20 @@
 
 .dc-brand {
     text-align: center;
-    margin: 0 0 var(--sp-6);
+    margin: var(--sp-6) 0 var(--sp-6);
+}
+
+.dc-brand__mark {
+    width: 2.75rem;
+    height: 2.75rem;
+    margin-bottom: var(--sp-3);
 }
 
 .dc-brand__name {
     font-size: var(--fs-24);
     font-weight: 600;
     letter-spacing: -0.01em;
-    margin: 0;
+    line-height: 1.25;
 }
 
 .dc-brand__tagline {
@@ -186,6 +143,7 @@
     align-items: center;
     gap: var(--sp-3);
     padding: var(--sp-3);
+    background: #fff;
     border: 1px solid var(--c-border);
     border-radius: var(--radius-md);
     margin-bottom: var(--sp-3);
@@ -226,7 +184,7 @@
 
 .dc-mock-banner {
     border: 1px dashed var(--c-warning);
-    background: color-mix(in srgb, var(--c-warning) 10%, transparent);
+    background: var(--c-warning-tint);
     color: var(--c-warning);
     border-radius: var(--radius-sm);
     padding: var(--sp-2) var(--sp-3);
@@ -237,6 +195,7 @@
 
 .dc-mock-banner span {
     display: block;
+    margin-top: var(--sp-1);
     font-weight: 400;
     font-size: var(--fs-12);
 }
@@ -244,33 +203,40 @@
 /* ---------- Badge ---------- */
 
 .dc-badge {
-    --badge-color: currentColor;
+    --badge-fg: var(--c-text-muted);
+    --badge-bg: #f1f5f9;
+    --badge-border: var(--c-border-strong);
     display: inline-block;
     padding: 1px var(--sp-2);
     border-radius: var(--radius-pill);
-    border: 1px solid color-mix(in srgb, var(--badge-color) 30%, transparent);
-    background: color-mix(in srgb, var(--badge-color) 10%, transparent);
-    color: var(--badge-color);
+    border: 1px solid var(--badge-border);
+    background: var(--badge-bg);
+    color: var(--badge-fg);
     font-size: var(--fs-12);
     font-weight: 500;
     line-height: 1.6;
     white-space: nowrap;
 }
 
-.dc-badge--neutral {
-    --badge-color: var(--c-text-muted);
-}
 .dc-badge--primary {
-    --badge-color: var(--c-primary-text);
+    --badge-fg: var(--c-primary-text);
+    --badge-bg: var(--c-primary-tint);
+    --badge-border: #bfdbfe;
 }
 .dc-badge--success {
-    --badge-color: var(--c-success);
+    --badge-fg: var(--c-success);
+    --badge-bg: var(--c-success-tint);
+    --badge-border: var(--c-success-border);
 }
 .dc-badge--warning {
-    --badge-color: var(--c-warning);
+    --badge-fg: var(--c-warning);
+    --badge-bg: var(--c-warning-tint);
+    --badge-border: var(--c-warning-border);
 }
 .dc-badge--error {
-    --badge-color: var(--c-error);
+    --badge-fg: var(--c-error);
+    --badge-bg: var(--c-error-tint);
+    --badge-border: var(--c-error-border);
 }
 
 /* ---------- Stepper (luồng làm sạch) ---------- */
@@ -322,8 +288,6 @@
     color: var(--c-primary-text);
 }
 
-/* ---------- Khối thông tin phụ ---------- */
-
 /* Chỉ dành cho trình đọc màn hình */
 .dc-sr-only {
     position: absolute;
@@ -335,14 +299,6 @@
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border: 0;
-}
-
-.dc-muted {
-    color: var(--c-text-muted);
-}
-
-.dc-mono {
-    font-family: var(--font-mono);
 }
 
 /* ---------- Mobile: chỉ cần không vỡ bố cục ---------- */

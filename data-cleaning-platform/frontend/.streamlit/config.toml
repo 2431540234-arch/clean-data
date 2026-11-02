@@ -1,5 +1,12 @@
-# KHÔNG đặt mục [theme] ở đây: Streamlit 1.41 sẽ ghim giao diện sáng và mất khả năng theo theme
-# sáng/tối của hệ thống. Màu thương hiệu (#2563EB) và font được đặt bằng assets/styles.css.
+[theme]
+# Chỉ giao diện sáng. Widget Streamlit (nút chính, checkbox, toggle, slider, tab...) tự dùng
+# primaryColor; token cho component tự dựng nằm ở assets/styles.css.
+base = "light"
+primaryColor = "#2563EB"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F8FAFC"
+textColor = "#0F172A"
+font = "sans serif"
 
 [server]
 headless = true

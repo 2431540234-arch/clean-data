@@ -4,8 +4,7 @@ from html import escape
 
 import streamlit as st
 
-from api_client import data_source_label
-from components.ui import badge_html
+from components.ui import badge_html, data_source_banner
 from state import get_current_user, is_admin, logout, set_flash
 
 
@@ -19,15 +18,9 @@ def render_sidebar() -> None:
         if is_admin()
         else badge_html("Người dùng", "neutral")
     )
-    label = data_source_label()
 
     with st.sidebar:
-        if label:
-            st.markdown(
-                f'<div class="dc-mock-banner" role="status">{escape(label)}'
-                "<span>Dữ liệu hiển thị không phải dữ liệu thật.</span></div>",
-                unsafe_allow_html=True,
-            )
+        data_source_banner()
         st.markdown(
             '<div class="dc-user-card">'
             f'<div class="dc-user-card__avatar" aria-hidden="true">{escape(name[:1].upper())}</div>'

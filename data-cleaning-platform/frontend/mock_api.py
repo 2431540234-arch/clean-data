@@ -20,6 +20,8 @@ import streamlit as st
 
 from api_client import APIError
 
+DEMO_HINT = "Tài khoản dùng thử: admin@example.com / Admin123! · user@example.com / User12345"
+
 _DB_KEY = "_mock_db"
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 

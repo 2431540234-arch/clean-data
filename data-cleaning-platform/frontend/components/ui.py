@@ -10,7 +10,7 @@ from typing import Any, Literal
 import pandas as pd
 import streamlit as st
 
-from api_client import APIConnectionError, APIError
+from api_client import APIConnectionError, APIError, data_source_hint, data_source_label
 from components.auth_guard import require_admin, require_login
 from components.navigation import FLOW_KEYS, get_page
 from state import init_state, is_logged_in, logout, pop_flash
@@ -63,6 +63,22 @@ def page_shell(
         st.title(title, anchor=False)
     if subtitle:
         st.caption(subtitle)
+
+
+def data_source_banner(*, show_hint: bool = False) -> None:
+    """Banner nhắc đang dùng dữ liệu mẫu (không hiện gì khi dùng backend thật)."""
+    label = data_source_label()
+    if not label:
+        return
+    notes = ["Dữ liệu hiển thị không phải dữ liệu thật."]
+    hint = data_source_hint() if show_hint else None
+    if hint:
+        notes.append(hint)
+    spans = "".join(f"<span>{escape(note)}</span>" for note in notes)
+    st.markdown(
+        f'<div class="dc-mock-banner" role="status">{escape(label)}{spans}</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def loading(text: str = "Đang tải…"):

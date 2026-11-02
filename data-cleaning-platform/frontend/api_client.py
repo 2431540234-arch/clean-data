@@ -43,6 +43,15 @@ def data_source_label() -> str | None:
     return "Chế độ dữ liệu mẫu" if MOCK else None
 
 
+def data_source_hint() -> str | None:
+    """Gợi ý dùng thử (ví dụ tài khoản mẫu) đi kèm nhãn nguồn dữ liệu, None nếu là thật."""
+    if not MOCK:
+        return None
+    import mock_api
+
+    return mock_api.DEMO_HINT
+
+
 def _headers(token: str | None) -> dict[str, str]:
     """Dựng header Authorization nếu có token."""
     if token:

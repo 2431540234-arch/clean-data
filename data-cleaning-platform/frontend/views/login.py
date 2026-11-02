@@ -3,19 +3,10 @@
 import streamlit as st
 
 from api_client import APIError, get_me, login, register
-from state import init_state, is_logged_in, logout, set_logged_in
+from components.ui import page_shell
+from state import set_logged_in
 
-st.set_page_config(page_title="Đăng nhập", page_icon="🔐")
-
-init_state()
-st.title("🔐 Đăng nhập / Đăng ký")
-
-if is_logged_in():
-    st.success("Bạn đã đăng nhập.")
-    if st.button("Đăng xuất"):
-        logout()
-        st.rerun()
-    st.stop()
+page_shell("Đăng nhập / Đăng ký", public=True)
 
 tab_login, tab_register = st.tabs(["Đăng nhập", "Đăng ký"])
 
@@ -31,7 +22,6 @@ with tab_login:
             token = token_data["access_token"]
             user = get_me(token)
             set_logged_in(token, user)
-            st.success("Đăng nhập thành công!")
             st.rerun()
         except APIError as exc:
             st.error(f"Đăng nhập thất bại: {exc.detail}")
@@ -49,7 +39,6 @@ with tab_register:
             token = token_data["access_token"]
             user = get_me(token)
             set_logged_in(token, user)
-            st.success("Đăng ký thành công!")
             st.rerun()
         except APIError as exc:
             st.error(f"Đăng ký thất bại: {exc.detail}")

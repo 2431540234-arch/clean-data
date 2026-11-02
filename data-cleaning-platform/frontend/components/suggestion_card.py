@@ -2,8 +2,6 @@
 
 from typing import Any
 
-import streamlit as st
-
 
 def render_suggestion_card(suggestion: dict[str, Any]) -> str | None:
     """Hiển thị một gợi ý (explanation, confidence, proposed_rule) kèm 2 nút Chấp nhận/Từ chối.

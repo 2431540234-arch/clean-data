@@ -2,14 +2,10 @@
 
 import streamlit as st
 
-from components.auth_guard import require_login
-from state import init_state
+from components.ui import page_shell
 
-st.set_page_config(page_title="Mapping cột", page_icon="🔗")
-init_state()
-require_login()
+page_shell("Mapping cột", "Ánh xạ tên cột của file với schema chuẩn")
 
-st.title("🔗 Mapping cột")
 st.info(
     "TODO: gọi POST /api/v1/mapping/{version_id}/suggest, hiển thị bảng mapping gợi ý "
     "(cột nguồn -> cột đích), cho phép người dùng sửa tay trước khi xác nhận."

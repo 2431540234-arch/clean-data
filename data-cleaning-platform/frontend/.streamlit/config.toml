@@ -1,14 +1,14 @@
-[theme]
-primaryColor = "#2563EB"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F1F5F9"
-textColor = "#0F172A"
-font = "sans serif"
+# KHÔNG đặt mục [theme] ở đây: Streamlit 1.41 sẽ ghim giao diện sáng và mất khả năng theo theme
+# sáng/tối của hệ thống. Màu thương hiệu (#2563EB) và font được đặt bằng assets/styles.css.
 
 [server]
 headless = true
 enableCORS = false
 enableXsrfProtection = true
+
+[client]
+# Ẩn nút Deploy; giữ menu cơ bản.
+toolbarMode = "viewer"
 
 [browser]
 gatherUsageStats = false

@@ -6,6 +6,8 @@ import streamlit as st
 
 _TOKEN_KEY = "access_token"
 _USER_KEY = "current_user"
+_FLASH_KEY = "flash_message"
+_CONTEXT_KEY = "work_context"
 
 
 def init_state() -> None:
@@ -23,9 +25,10 @@ def set_logged_in(token: str, user: dict[str, Any]) -> None:
 
 
 def logout() -> None:
-    """Xóa token và thông tin user khỏi session_state."""
+    """Xóa token, thông tin user và ngữ cảnh làm việc khỏi session_state."""
     st.session_state[_TOKEN_KEY] = None
     st.session_state[_USER_KEY] = None
+    st.session_state.pop(_CONTEXT_KEY, None)
 
 
 def get_token() -> str | None:
@@ -47,3 +50,23 @@ def is_admin() -> bool:
     """Kiểm tra user hiện tại có role 'admin' hay không."""
     user = get_current_user()
     return user is not None and user.get("role") == "admin"
+
+
+def set_flash(message: str, kind: str = "success") -> None:
+    """Đặt thông báo hiển thị (st.toast) ở lần chạy kế tiếp, sống sót qua st.rerun()."""
+    st.session_state[_FLASH_KEY] = (message, kind)
+
+
+def pop_flash() -> tuple[str, str] | None:
+    """Lấy và xóa thông báo đã đặt bằng set_flash, None nếu không có."""
+    return st.session_state.pop(_FLASH_KEY, None)
+
+
+def get_context() -> dict[str, Any]:
+    """Ngữ cảnh làm việc hiện tại: project_id, dataset_id, version_id (key vắng = chưa chọn)."""
+    return st.session_state.setdefault(_CONTEXT_KEY, {})
+
+
+def set_context(**values: Any) -> None:
+    """Cập nhật ngữ cảnh làm việc (project_id, dataset_id, version_id, ...)."""
+    get_context().update(values)

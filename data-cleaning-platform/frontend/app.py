@@ -1,33 +1,42 @@
-"""Trang chính của frontend Streamlit: kiểm tra đăng nhập và điều hướng tới các trang chức năng."""
+"""Điểm vào frontend Streamlit: cấu hình trang, nạp CSS và dựng điều hướng theo quyền.
+
+Các trang nằm trong views/ và được khai báo ở components/navigation.py. Chưa đăng nhập chỉ
+thấy trang Đăng nhập (không có menu); đã đăng nhập thấy menu nhóm theo luồng nghiệp vụ,
+mục Quản trị chỉ hiện với admin.
+"""
 
 import streamlit as st
 
-from state import get_current_user, init_state, is_logged_in
+from components.navigation import PRODUCT_NAME, build_pages
+from components.sidebar import render_sidebar
+from components.theme import ASSETS_DIR, load_css
+from state import init_state, is_admin, is_logged_in
 
-st.set_page_config(page_title="Data Cleaning Platform", page_icon="🧹", layout="wide")
+st.set_page_config(
+    page_title=PRODUCT_NAME,
+    page_icon=":material/cleaning_services:",
+    layout="wide",
+)
 
 
 def main() -> None:
-    """Hiển thị trang chủ: nếu chưa đăng nhập hướng dẫn qua trang Đăng nhập, nếu đã đăng
-    nhập thì hiển thị lời chào và danh sách trang chức năng ở sidebar (do Streamlit tự
-    sinh từ thư mục pages/).
-    """
+    """Dựng điều hướng, sidebar rồi chạy trang đang chọn."""
     init_state()
+    load_css()
 
-    st.title("🧹 Data Cleaning Platform")
-    st.caption("Nền tảng làm sạch dữ liệu Excel/CSV có AI gợi ý chuẩn hóa")
-
-    if not is_logged_in():
-        st.info("Vui lòng vào trang **0. Đăng nhập** ở sidebar để tiếp tục.")
-        return
-
-    user = get_current_user()
-    st.success(f"Xin chào, {user.get('full_name', user.get('email'))}!")
-    st.write(
-        "Sử dụng menu ở sidebar để: upload dữ liệu, xem tổng quan, nhận gợi ý làm sạch, "
-        "xem lịch sử phiên bản và xuất dữ liệu."
+    logged_in = is_logged_in()
+    navigation = st.navigation(
+        build_pages(logged_in, is_admin()),
+        position="sidebar" if logged_in else "hidden",
     )
+    if logged_in:
+        st.logo(
+            str(ASSETS_DIR / "logo.svg"),
+            icon_image=str(ASSETS_DIR / "logo-mark.svg"),
+            size="large",
+        )
+        render_sidebar()
+    navigation.run()
 
 
-if __name__ == "__main__":
-    main()
+main()

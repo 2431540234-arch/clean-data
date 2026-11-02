@@ -220,3 +220,23 @@ def select_sheet(token: str, dataset_id: int, sheet_name: str) -> dict[str, Any]
         params={"sheet_name": sheet_name},
         timeout=60.0,
     )
+
+
+def get_profiling(token: str, version_id: int) -> dict[str, Any]:
+    """Kết quả profiling đã lưu của một phiên bản (ProfilingResult); 404 nếu chưa chạy."""
+    return request("GET", f"/api/v1/profiling/{version_id}", token=token)
+
+
+def run_profiling(token: str, version_id: int) -> dict[str, Any]:
+    """Chạy profiling cho một phiên bản và lưu kết quả (ProfilingResult)."""
+    return request("POST", f"/api/v1/profiling/{version_id}/run", token=token, timeout=120.0)
+
+
+def get_quality(token: str, version_id: int) -> dict[str, Any]:
+    """Điểm chất lượng của một phiên bản (QualityReportOut)."""
+    return request("GET", f"/api/v1/quality/{version_id}", token=token, timeout=60.0)
+
+
+def get_project(token: str, project_id: int) -> dict[str, Any]:
+    """Thông tin một project (ProjectOut)."""
+    return request("GET", f"/api/v1/projects/{project_id}", token=token)

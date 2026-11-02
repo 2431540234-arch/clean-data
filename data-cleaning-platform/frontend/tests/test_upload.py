@@ -203,3 +203,9 @@ def test_open_dataset_by_id_sets_context():
     at.button(key="ctx_open_empty_open").click().run()
     context = at.session_state["work_context"]
     assert context["dataset_id"] == 1 and context["dataset_name"] == "khach_hang_ban.csv"
+
+
+def test_context_bar_fetches_project_name_when_missing():
+    at = _run_bar("user", {"dataset_id": 1})
+    assert any("Khách hàng 2026" in c.value for c in at.caption)
+    assert at.session_state["work_context"]["project_name"] == "Khách hàng 2026"

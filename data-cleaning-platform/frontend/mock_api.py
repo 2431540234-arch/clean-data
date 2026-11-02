@@ -19,6 +19,7 @@ from typing import Any
 import streamlit as st
 
 import mock_data
+import mock_profiling
 from api_client import APIError
 
 DEMO_HINT = "Tài khoản dùng thử: admin@example.com / Admin123! · user@example.com / User12345"
@@ -136,8 +137,11 @@ def _seed() -> dict[str, Any]:
         "versions": [],
         "frames": {},  # version_id -> DataFrame
         "raw_files": {},  # dataset_id -> (bytes, loại file), để chọn lại sheet
+        "profiles": {},  # version_id -> list[SchemaProfileOut]
+        "quality": {},  # version_id -> QualityReportOut
         "next_dataset_id": 1,
         "next_version_id": 1,
+        "next_id": 1,  # id chung cho profile/quality/...
     }
     _add_dataset(
         state,
@@ -487,3 +491,59 @@ def _select_sheet(call: Call) -> dict[str, Any]:
     first.update(row_count=len(frame), column_count=len(frame.columns))
     dataset.update(sheet_name=sheet, current_version_id=first["id"], updated_at=_now())
     return _upload_response(dataset, sheet_names)
+
+
+# ---------------------------------------------------------------------------
+# Profiling và chất lượng
+# ---------------------------------------------------------------------------
+
+
+def _get_version(version_id: int, user: dict[str, Any]) -> dict[str, Any]:
+    """Lấy version và kiểm tra quyền qua dataset -> project."""
+    version = next((v for v in db()["versions"] if v["id"] == version_id), None)
+    if version is None:
+        raise APIError(404, "Không tìm thấy tài nguyên.")
+    _get_dataset(version["dataset_id"], user)
+    return version
+
+
+def _next_id(count: int = 1) -> int:
+    state = db()
+    first = state["next_id"]
+    state["next_id"] += count
+    return first
+
+
+@route("POST", r"/profiling/(\d+)/run")
+def _run_profiling(call: Call) -> dict[str, Any]:
+    assert call.user is not None
+    version = _get_version(int(call.args[0]), call.user)
+    frame = db()["frames"][version["id"]]
+    columns = mock_profiling.profile_frame(
+        frame, version["id"], _next_id(len(frame.columns)), _now()
+    )
+    db()["profiles"][version["id"]] = columns
+    return {"version_id": version["id"], "columns": columns}
+
+
+@route("GET", r"/profiling/(\d+)")
+def _get_profiling(call: Call) -> dict[str, Any]:
+    assert call.user is not None
+    version = _get_version(int(call.args[0]), call.user)
+    columns = db()["profiles"].get(version["id"])
+    if columns is None:
+        raise APIError(404, "Chưa có kết quả profiling cho phiên bản này.")
+    return {"version_id": version["id"], "columns": columns}
+
+
+@route("GET", r"/quality/(\d+)")
+def _get_quality(call: Call) -> dict[str, Any]:
+    assert call.user is not None
+    state = db()
+    version = _get_version(int(call.args[0]), call.user)
+    if version["id"] not in state["quality"]:
+        frame = state["frames"][version["id"]]
+        state["quality"][version["id"]] = mock_profiling.quality_report(
+            frame, version["id"], _next_id(), _now()
+        )
+    return state["quality"][version["id"]]

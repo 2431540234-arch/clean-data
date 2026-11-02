@@ -9,7 +9,7 @@ from typing import Any
 
 import streamlit as st
 
-from api_client import APIError, get_dataset, list_dataset_versions
+from api_client import APIError, get_dataset, get_project, list_dataset_versions
 from components.navigation import get_page
 from components.ui import empty_state, error_state, safe_call
 from state import get_context, get_token, set_context, set_flash
@@ -95,6 +95,12 @@ def dataset_context_bar() -> ActiveDataset:
 
     dataset, version = info
     set_context(version_id=version["id"], dataset_name=dataset["original_filename"])
+    if not context.get("project_name"):
+        project_info, _ = safe_call(
+            "Đang tải project…", get_project, get_token(), dataset["project_id"]
+        )
+        if project_info:
+            set_context(project_id=project_info["id"], project_name=project_info["name"])
     project = context.get("project_name") or f"#{dataset['project_id']}"
     with st.container(border=True):
         left, right = st.columns([5, 2], vertical_alignment="center")

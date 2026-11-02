@@ -25,6 +25,7 @@ import mock_profiling
 import mock_rules
 import mock_suggest
 from api_client import _SERVER_ERROR_MESSAGE, APIError
+from components.labels import op_label
 
 DEMO_HINT = "Tài khoản dùng thử: admin@example.com / Admin123! · user@example.com / User12345"
 
@@ -649,9 +650,12 @@ def _preview(call: Call) -> dict[str, Any]:
 
 
 def _summarize(steps: list[dict[str, Any]]) -> str:
-    return f"Áp dụng {len(steps)} bước làm sạch: " + ", ".join(
-        f"{s['op']}({s['column']})" if s.get("column") else s["op"] for s in steps
-    )
+    """Mô tả thay đổi của một đợt áp dụng bằng nhãn tiếng Việt (mock tự đặt, backend tự quyết)."""
+    parts = [
+        f"{op_label(s['op'])} ({s['column']})" if s.get("column") else op_label(s["op"])
+        for s in steps
+    ]
+    return f"Áp dụng {len(steps)} bước: " + "; ".join(parts)
 
 
 @route("POST", r"/versions/(\d+)/apply")
@@ -684,3 +688,53 @@ def _apply_rule_set(call: Call) -> dict[str, Any]:
     state["frames"][version["id"]] = frame
     dataset.update(current_version_id=version["id"], updated_at=_now())
     return version
+
+
+# ---------------------------------------------------------------------------
+# Undo / redo / khôi phục phiên bản
+# ---------------------------------------------------------------------------
+
+
+def _switch_version(dataset: dict[str, Any], version_id: int) -> dict[str, Any]:
+    """Đặt phiên bản hiện tại của dataset (không xóa phiên bản nào)."""
+    version = next(v for v in db()["versions"] if v["id"] == version_id)
+    dataset.update(current_version_id=version_id, updated_at=_now())
+    return version
+
+
+def _current_version(dataset: dict[str, Any]) -> dict[str, Any]:
+    return next(v for v in db()["versions"] if v["id"] == dataset["current_version_id"])
+
+
+@route("POST", r"/versions/(\d+)/undo")
+def _undo(call: Call) -> dict[str, Any]:
+    assert call.user is not None
+    dataset = _get_dataset(int(call.args[0]), call.user)
+    parent_id = _current_version(dataset)["parent_version_id"]
+    if parent_id is None:
+        raise APIError(422, "Không còn phiên bản trước để hoàn tác.")
+    return _switch_version(dataset, parent_id)
+
+
+@route("POST", r"/versions/(\d+)/redo")
+def _redo(call: Call) -> dict[str, Any]:
+    assert call.user is not None
+    dataset = _get_dataset(int(call.args[0]), call.user)
+    children = [
+        v for v in db()["versions"] if v["parent_version_id"] == dataset["current_version_id"]
+    ]
+    if not children:
+        raise APIError(422, "Không có phiên bản nào để làm lại.")
+    return _switch_version(dataset, max(children, key=lambda v: v["version_number"])["id"])
+
+
+@route("POST", r"/versions/(\d+)/restore/(\d+)")
+def _restore(call: Call) -> dict[str, Any]:
+    assert call.user is not None
+    dataset = _get_dataset(int(call.args[0]), call.user)
+    version_id = int(call.args[1])
+    if not any(
+        v["id"] == version_id and v["dataset_id"] == dataset["id"] for v in db()["versions"]
+    ):
+        raise APIError(404, "Không tìm thấy tài nguyên.")
+    return _switch_version(dataset, version_id)

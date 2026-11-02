@@ -301,3 +301,18 @@ def apply_rules(token: str, dataset_id: int, steps: list[dict[str, Any]]) -> dic
         json={"steps": steps},
         timeout=180.0,
     )
+
+
+def undo_version(token: str, dataset_id: int) -> dict[str, Any]:
+    """Quay lại phiên bản cha của phiên bản hiện tại (trả DatasetVersionOut mới hiện tại)."""
+    return request("POST", f"/api/v1/versions/{dataset_id}/undo", token=token)
+
+
+def redo_version(token: str, dataset_id: int) -> dict[str, Any]:
+    """Tiến tới phiên bản con gần nhất của phiên bản hiện tại (DatasetVersionOut)."""
+    return request("POST", f"/api/v1/versions/{dataset_id}/redo", token=token)
+
+
+def restore_version(token: str, dataset_id: int, version_id: int) -> dict[str, Any]:
+    """Đặt một phiên bản trong lịch sử thành phiên bản hiện tại (DatasetVersionOut)."""
+    return request("POST", f"/api/v1/versions/{dataset_id}/restore/{version_id}", token=token)

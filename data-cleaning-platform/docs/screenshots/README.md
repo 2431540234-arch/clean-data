@@ -46,3 +46,13 @@ Một số ảnh của các trang làm trước (Trang chủ ở mobile, Tải l
 | `goi-y-lam-sach__du-lieu-da-sach` | Không còn gợi ý nào |
 | `goi-y-lam-sach__loi-may-chu` / `...-chi-tiet-ky-thuat` | Trạng thái lỗi thân thiện |
 | `goi-y-lam-sach__khung-mapping-cong-tat` / `...mapping-trong-buoc-xem-truoc` | Bước đổi tên từ Mapping |
+
+## Lịch sử phiên bản
+| Ảnh | Nội dung |
+|---|---|
+| `lich-su-phien-ban__chi-co-ban-goc` | Dataset chỉ có bản gốc: trạng thái rỗng, Hoàn tác/Làm lại bị khóa |
+| `lich-su-phien-ban__danh-sach-phien-ban` | Timeline từ mới đến cũ, nhãn Hiện tại/Bản gốc, thay đổi dòng/cột |
+| `lich-su-phien-ban__sau-hoan-tac-co-the-lam-lai` | Sau Hoàn tác: nút Làm lại mở khóa |
+| `lich-su-phien-ban__dialog-xac-nhan-khoi-phuc` | Hộp thoại xác nhận khôi phục |
+| `lich-su-phien-ban__sau-khoi-phuc` | Sau khi khôi phục |
+| `lich-su-phien-ban__loi-may-chu-khi-hoan-tac` | Lỗi máy chủ khi hoàn tác (thân thiện, không traceback) |

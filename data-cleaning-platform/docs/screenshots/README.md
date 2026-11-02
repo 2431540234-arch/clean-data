@@ -108,3 +108,8 @@ Một số ảnh của các trang làm trước (Trang chủ ở mobile, Tải l
 sau khi đã chọn dataset (Mapping đã có bảng gợi ý, Gợi ý làm sạch đã sinh gợi ý, Xuất dữ liệu đã tạo
 tệp CSV). Kết quả quét tự động: không trang nào tràn ngang ở 1280/768/375px và không có chữ hay
 placeholder nào dưới tương phản 4,5:1.
+
+## Luồng demo đầy đủ (`demo-flow/`)
+Bộ ảnh chụp lúc đi thử trọn luồng bằng chế độ dữ liệu mẫu (đăng nhập → Dashboard → Tải lên →
+Tổng quan → Mapping → Gợi ý (xem trước, áp dụng) → Lịch sử → Xuất → Nhật ký → Quản trị), theo thứ tự `01`…`12b`.
+Đây là ảnh của giao diện cuối cùng cho các trang Tải lên, Tổng quan dữ liệu và Mapping cột.

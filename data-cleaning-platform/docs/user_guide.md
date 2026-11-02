@@ -18,6 +18,11 @@
 
 - Trang **Gợi ý làm sạch**: xem giải thích lỗi, duyệt gợi ý, xem trước (preview),
   xác nhận áp dụng.
+- **Thứ tự xử lý khi áp dụng:** các gợi ý làm sạch được sinh theo **tên cột hiện tại** của phiên
+  bản, nên chúng chạy trước. Các bước **đổi tên cột** từ trang **Mapping cột** được đưa vào cùng
+  đợt nhưng chạy **sau cùng**: nếu đổi tên trước thì rule của gợi ý (vẫn ghi tên cột cũ) sẽ không
+  còn tìm thấy cột và báo lỗi. Bạn luôn phải **xem trước** trước khi áp dụng, và có thể hoàn tác
+  ở **Lịch sử phiên bản**.
 
 ## 5. Quản lý phiên bản (undo/redo)
 

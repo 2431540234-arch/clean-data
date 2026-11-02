@@ -154,3 +154,17 @@ Frontend giai đoạn này **chưa dùng** `/rules/*`; còn khai báo, chưa cà
   (chi tiết kỹ thuật nằm trong mục thu gọn). Khi chưa cài đặt hãy ưu tiên trả `501` + `detail` rõ nghĩa thay vì 500.
 - Thời gian là ISO 8601 (có múi giờ); frontend hiển thị dạng `dd/MM/yyyy HH:mm`.
 - Không đổi: schema DB, định dạng rule JSON (`RuleSet`), quyền `admin`/`user`.
+
+## 4. Ghi chú về mock
+
+`frontend/mock_api.py` (cùng `mock_data.py`, `mock_profiling.py`, `mock_mapping.py`, `mock_rules.py`,
+`mock_suggest.py`) chỉ là **tài liệu tham khảo hành vi** và công cụ để dựng giao diện khi backend
+chưa xong. Backend:
+
+- **Phải tự cài Rule Engine** (và profiling, điểm chất lượng, gợi ý mapping, sinh gợi ý...) theo
+  `docs/rule_dsl.md`, `docs/quality_score.md` và các schema trong `backend/app/schemas`.
+- **KHÔNG import hay sao chép trực tiếp** code từ `frontend/`. Mock dùng thuật toán đơn giản để đủ
+  demo (ví dụ suy luận kiểu theo regex, phát hiện biến thể tên bằng bỏ dấu), không phải đặc tả.
+- Nếu mock và `docs/` mâu thuẫn, `docs/` và schema backend là nguồn đúng; hãy báo để sửa mock.
+- Mock không có trong ảnh Docker chạy thật: chế độ này chỉ bật bằng biến `FRONTEND_MOCK=1`.
+

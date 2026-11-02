@@ -56,3 +56,12 @@ Một số ảnh của các trang làm trước (Trang chủ ở mobile, Tải l
 | `lich-su-phien-ban__dialog-xac-nhan-khoi-phuc` | Hộp thoại xác nhận khôi phục |
 | `lich-su-phien-ban__sau-khoi-phuc` | Sau khi khôi phục |
 | `lich-su-phien-ban__loi-may-chu-khi-hoan-tac` | Lỗi máy chủ khi hoàn tác (thân thiện, không traceback) |
+
+## Xuất dữ liệu
+| Ảnh | Nội dung |
+|---|---|
+| `xuat-du-lieu__ban-goc-chua-tao-tep` | Gauge và 4 tiêu chí thành phần, nhắc đang xuất bản gốc |
+| `xuat-du-lieu__sau-khi-tao-tep-co-nut-tai` | Sau khi tạo tệp CSV và Excel: hiện nút Tải xuống kèm dung lượng |
+| `xuat-du-lieu__phien-ban-da-lam-sach` | Phiên bản 2: điểm chất lượng tăng (90,7 → 98,0) |
+| `xuat-du-lieu__loi-diem-chat-luong-va-xuat-csv` | Lỗi điểm chất lượng và lỗi tạo CSV: trang vẫn dùng được |
+| `xuat-du-lieu__mobile` | Bố cục 375px |

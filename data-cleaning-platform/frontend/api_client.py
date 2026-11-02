@@ -316,3 +316,15 @@ def redo_version(token: str, dataset_id: int) -> dict[str, Any]:
 def restore_version(token: str, dataset_id: int, version_id: int) -> dict[str, Any]:
     """Đặt một phiên bản trong lịch sử thành phiên bản hiện tại (DatasetVersionOut)."""
     return request("POST", f"/api/v1/versions/{dataset_id}/restore/{version_id}", token=token)
+
+
+def export_csv(token: str, version_id: int) -> bytes:
+    """Nội dung file CSV (UTF-8 có BOM) của một phiên bản."""
+    return request("GET", f"/api/v1/export/{version_id}/csv", token=token, raw=True, timeout=180.0)
+
+
+def export_excel(token: str, version_id: int) -> bytes:
+    """Nội dung file Excel nhiều sheet (dữ liệu + báo cáo chất lượng) của một phiên bản."""
+    return request(
+        "GET", f"/api/v1/export/{version_id}/excel", token=token, raw=True, timeout=180.0
+    )

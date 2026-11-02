@@ -1,5 +1,6 @@
 """Fixture dùng chung cho test frontend: chạy từng trang bằng AppTest với backend giả (mock)."""
 
+import copy
 import os
 
 # Phải đặt trước khi api_client được import: toàn bộ test chạy với dữ liệu mẫu.
@@ -37,7 +38,8 @@ def run_view():
             at.session_state["access_token"] = token
             at.session_state["current_user"] = {**user, "full_name": f"Người dùng {role}"}
         for key, value in (state or {}).items():
-            at.session_state[key] = value
+            # sao chép sâu: trang sửa trực tiếp dict ngữ cảnh nên test không được dùng chung nó
+            at.session_state[key] = copy.deepcopy(value)
         return at.run()
 
     return _run
@@ -83,7 +85,7 @@ def call_api():
         at.session_state["access_token"] = _ROLES[role][0]
         at.session_state["_call"] = (name, args)
         for key, value in (state or {}).items():
-            at.session_state[key] = value
+            at.session_state[key] = copy.deepcopy(value)
         at.run()
         assert not at.exception, at.exception
         result, error = at.session_state["_result"]

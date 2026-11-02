@@ -10,6 +10,7 @@ Tài khoản mẫu:
     user@example.com  / User12345   (người dùng thường)
 """
 
+import io
 import os
 import re
 from collections.abc import Callable
@@ -17,6 +18,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+import pandas as pd
 import streamlit as st
 
 import mock_data
@@ -738,3 +740,40 @@ def _restore(call: Call) -> dict[str, Any]:
     ):
         raise APIError(404, "Không tìm thấy tài nguyên.")
     return _switch_version(dataset, version_id)
+
+
+# ---------------------------------------------------------------------------
+# Xuất dữ liệu
+# ---------------------------------------------------------------------------
+
+
+@route("GET", r"/export/(\d+)/csv")
+def _export_csv(call: Call) -> bytes:
+    assert call.user is not None
+    version = _get_version(int(call.args[0]), call.user)
+    # UTF-8 có BOM để Excel đọc đúng tiếng Việt (giống backend: export_to_csv_bytes).
+    return db()["frames"][version["id"]].to_csv(index=False).encode("utf-8-sig")
+
+
+@route("GET", r"/export/(\d+)/excel")
+def _export_excel(call: Call) -> bytes:
+    assert call.user is not None
+    state = db()
+    version = _get_version(int(call.args[0]), call.user)
+    frame = state["frames"][version["id"]]
+    report = mock_profiling.quality_report(frame, version["id"], 0, _now())
+    summary = pd.DataFrame(
+        [
+            ("Điểm chất lượng (0-100)", report["overall_score"]),
+            ("Đầy đủ", report["completeness"]),
+            ("Không trùng lặp", report["uniqueness"]),
+            ("Hợp lệ", report["validity"]),
+            ("Nhất quán", report["consistency"]),
+        ],
+        columns=["Chỉ tiêu", "Giá trị"],
+    )
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        frame.to_excel(writer, sheet_name="Dữ liệu", index=False)
+        summary.to_excel(writer, sheet_name="Báo cáo chất lượng", index=False)
+    return buffer.getvalue()

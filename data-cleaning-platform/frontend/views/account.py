@@ -1,12 +1,93 @@
-"""Trang Tài khoản: xem thông tin cá nhân, đổi mật khẩu."""
+"""Trang Tài khoản: xem thông tin cá nhân và đổi mật khẩu."""
+
+from html import escape
 
 import streamlit as st
 
-from components.ui import page_shell
+from api_client import APIConnectionError, change_password, get_me
+from components.formatting import format_date
+from components.ui import badge_html, error_state, page_shell, safe_call, section
+from state import get_current_user, get_token, set_flash, set_logged_in
+
+_MIN_PASSWORD_LENGTH = 8  # khớp ChangePasswordRequest.new_password(min_length=8) của backend
+
+
+def _profile(user: dict) -> None:
+    name = str(user.get("full_name") or user.get("email") or "Người dùng")
+    role = (
+        badge_html("Quản trị viên", "primary")
+        if user.get("role") == "admin"
+        else badge_html("Người dùng")
+    )
+    status = (
+        badge_html("Đang hoạt động", "success")
+        if user.get("is_active", True)
+        else badge_html("Đã khóa", "error")
+    )
+    with section("Hồ sơ"):
+        st.markdown(
+            '<div class="dc-user-card dc-user-card--plain">'
+            f'<div class="dc-user-card__avatar" aria-hidden="true">{escape(name[:1].upper())}</div>'
+            '<div class="dc-user-card__body">'
+            f'<div class="dc-user-card__name">{escape(name)}</div>'
+            f'<div class="dc-user-card__email">{escape(str(user.get("email", "")))}</div>'
+            f"{role} {status}</div></div>",
+            unsafe_allow_html=True,
+        )
+        st.caption(f"Tham gia từ {format_date(user.get('created_at'))}")
+
+
+def _password_form() -> None:
+    with section(
+        "Đổi mật khẩu", caption=f"Mật khẩu mới cần có ít nhất {_MIN_PASSWORD_LENGTH} ký tự."
+    ):
+        with st.form("change_password_form", clear_on_submit=True, border=False):
+            old = st.text_input(
+                "Mật khẩu hiện tại", type="password", autocomplete="current-password"
+            )
+            new = st.text_input("Mật khẩu mới", type="password", autocomplete="new-password")
+            confirm = st.text_input(
+                "Nhập lại mật khẩu mới", type="password", autocomplete="new-password"
+            )
+            submitted = st.form_submit_button("Đổi mật khẩu", type="primary", icon=":material/key:")
+        if not submitted:
+            return
+
+        problems = []
+        if not old:
+            problems.append("Vui lòng nhập mật khẩu hiện tại.")
+        if len(new) < _MIN_PASSWORD_LENGTH:
+            problems.append(f"Mật khẩu mới cần có ít nhất {_MIN_PASSWORD_LENGTH} ký tự.")
+        elif new == old:
+            problems.append("Mật khẩu mới phải khác mật khẩu hiện tại.")
+        elif new != confirm:
+            problems.append("Mật khẩu nhập lại không khớp.")
+        if problems:
+            st.error("\n".join(f"- {p}" for p in problems), icon=":material/error:")
+            return
+
+        _, error = safe_call("Đang đổi mật khẩu…", change_password, get_token(), old, new)
+        if error is None:
+            set_flash("Đã đổi mật khẩu.")
+            st.rerun()
+        elif isinstance(error, APIConnectionError) or error.status_code >= 500:
+            error_state(error, key="change_password")
+        else:
+            st.error(error.detail, icon=":material/error:")
+
 
 page_shell("Tài khoản", "Thông tin cá nhân và mật khẩu")
 
-st.info(
-    "TODO: hiển thị thông tin và thêm form đổi mật khẩu gọi POST /api/v1/auth/change- "
-    "password (mật khẩu cũ + mật khẩu mới)."
-)
+user = get_current_user() or {}
+fresh, error = safe_call("Đang tải thông tin tài khoản…", get_me, get_token())
+if error is not None:
+    if error.status_code == 401:
+        error_state(error, key="account")  # phiên hết hạn: nút Đăng nhập lại
+        st.stop()
+    st.warning("Không cập nhật được thông tin mới nhất; đang hiển thị thông tin đã lưu.")
+else:
+    user = fresh
+    set_logged_in(get_token(), fresh)  # phòng khi quyền/họ tên bị admin đổi
+
+_profile(user)
+_password_form()

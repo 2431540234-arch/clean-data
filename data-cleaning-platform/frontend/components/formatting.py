@@ -50,3 +50,16 @@ def format_bytes(size: int | None) -> str:
             return f"{text} {unit}"
         value /= 1024
     return _EMPTY
+
+
+def to_vn_datetime(value: str | None) -> datetime | None:
+    """ISO 8601 -> datetime theo giờ Việt Nam; None nếu rỗng hoặc không hợp lệ."""
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(VN_TZ)

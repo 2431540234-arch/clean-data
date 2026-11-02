@@ -149,6 +149,12 @@
     margin-bottom: var(--sp-3);
 }
 
+.dc-user-card--plain {
+    padding: 0;
+    border: 0;
+    margin-bottom: var(--sp-2);
+}
+
 .dc-user-card__avatar {
     flex: none;
     width: 2.25rem;

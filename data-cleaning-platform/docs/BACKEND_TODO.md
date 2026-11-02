@@ -122,6 +122,8 @@ Cần: `undo`/`redo` trả 4xx có thông báo rõ khi không còn bước để
 `AuditLogOut`: `id, user_id, project_id, entity_type, entity_id, action, old_value, new_value, ip_address, created_at`.
 Frontend hiển thị mới nhất lên đầu (nên trả sẵn `created_at DESC`).
 
+Frontend có nhãn tiếng Việt cho các mã `action` sau (mã khác vẫn hiển thị nguyên văn, không lỗi): `dataset.upload`, `dataset.export`, `project.create|update|delete`, `suggestion.accept|reject`, `version.apply_rule|undo|redo|restore`, `auth.change_password`, `user.lock|unlock|change_role|reset_password`; `entity_type` biết: `dataset`, `project`, `suggestion`, `user`, `system`. Backend nên ghi các hành động này (mỗi thao tác ghi dữ liệu một dòng) để trang Nhật ký có nội dung. Trang lọc theo `action` và ngày ở phía frontend, nên `GET /audit/*` chỉ cần trả đủ dữ liệu (nên giới hạn/phân trang nếu rất nhiều dòng).
+
 ### 1.10 Admin (chỉ admin)
 
 | Method | Path | Request | Response |

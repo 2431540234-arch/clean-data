@@ -328,3 +328,28 @@ def export_excel(token: str, version_id: int) -> bytes:
     return request(
         "GET", f"/api/v1/export/{version_id}/excel", token=token, raw=True, timeout=180.0
     )
+
+
+def audit_me(token: str) -> list[dict[str, Any]]:
+    """Nhật ký hoạt động của chính user (list[AuditLogOut], mới nhất trước)."""
+    return request("GET", "/api/v1/audit/me", token=token)
+
+
+def audit_all(token: str) -> list[dict[str, Any]]:
+    """Nhật ký toàn hệ thống (chỉ admin)."""
+    return request("GET", "/api/v1/audit/all", token=token)
+
+
+def admin_list_users(token: str) -> list[dict[str, Any]]:
+    """Danh sách mọi user (chỉ admin) (list[UserOut])."""
+    return request("GET", "/api/v1/admin/users", token=token)
+
+
+def change_password(token: str, old_password: str, new_password: str) -> dict[str, Any]:
+    """Đổi mật khẩu của chính user đang đăng nhập."""
+    return request(
+        "POST",
+        "/api/v1/auth/change-password",
+        token=token,
+        json={"old_password": old_password, "new_password": new_password},
+    )

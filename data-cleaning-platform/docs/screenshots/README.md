@@ -65,3 +65,22 @@ Một số ảnh của các trang làm trước (Trang chủ ở mobile, Tải l
 | `xuat-du-lieu__phien-ban-da-lam-sach` | Phiên bản 2: điểm chất lượng tăng (90,7 → 98,0) |
 | `xuat-du-lieu__loi-diem-chat-luong-va-xuat-csv` | Lỗi điểm chất lượng và lỗi tạo CSV: trang vẫn dùng được |
 | `xuat-du-lieu__mobile` | Bố cục 375px |
+
+## Nhật ký hoạt động
+| Ảnh | Nội dung |
+|---|---|
+| `nhat-ky__danh-sach-cua-toi` | Nhật ký của chính mình, mới nhất trước, bộ lọc hành động/ngày |
+| `nhat-ky__loc-theo-hanh-dong` | Lọc theo hành động (chip màu chính) |
+| `nhat-ky__chi-tiet-truoc-sau` | Chi tiết một bản ghi: trạng thái trước/sau (JSON) |
+| `nhat-ky__admin-chi-xem-cua-minh` / `nhat-ky__admin-toan-he-thong` | Admin: công tắc "Xem toàn hệ thống", thêm cột người thực hiện |
+| `nhat-ky__chua-co-hoat-dong` | Tài khoản mới chưa có hoạt động |
+| `nhat-ky__loi-may-chu` | Lỗi máy chủ thân thiện |
+
+## Tài khoản
+| Ảnh | Nội dung |
+|---|---|
+| `tai-khoan__ho-so-va-doi-mat-khau` | Hồ sơ và form đổi mật khẩu |
+| `tai-khoan__loi-kiem-tra-form` | Mật khẩu nhập lại không khớp |
+| `tai-khoan__sai-mat-khau-hien-tai` | Backend từ chối mật khẩu cũ |
+| `tai-khoan__doi-thanh-cong` | Đổi thành công (toast, vẫn đăng nhập) |
+| `tai-khoan__mobile` | Bố cục 375px |

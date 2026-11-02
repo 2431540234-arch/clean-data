@@ -100,6 +100,76 @@ def _add_dataset(
     return dataset, version
 
 
+def _seed_audit() -> list[dict[str, Any]]:
+    """Vài dòng nhật ký có sẵn (lịch sử của dataset mẫu) để trang có dữ liệu ngay."""
+    rows = [
+        (
+            2,
+            "project.create",
+            "project",
+            1,
+            1,
+            None,
+            {"name": "Khách hàng 2026"},
+            "2026-09-12T03:20:00+00:00",
+        ),
+        (
+            2,
+            "dataset.upload",
+            "dataset",
+            1,
+            1,
+            None,
+            {"filename": "khach_hang_ban.csv", "rows": 30},
+            "2026-09-12T04:00:00+00:00",
+        ),
+        (
+            1,
+            "project.create",
+            "project",
+            3,
+            3,
+            None,
+            {"name": "Dữ liệu nội bộ"},
+            "2026-09-20T01:10:00+00:00",
+        ),
+        (
+            2,
+            "project.create",
+            "project",
+            2,
+            2,
+            None,
+            {"name": "Đơn hàng quý 3"},
+            "2026-10-05T07:45:00+00:00",
+        ),
+    ]
+    return [
+        {
+            "id": index + 1,
+            "user_id": user_id,
+            "project_id": project_id,
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+            "action": action,
+            "old_value": old,
+            "new_value": new,
+            "ip_address": "127.0.0.1",
+            "created_at": created_at,
+        }
+        for index, (
+            user_id,
+            action,
+            entity_type,
+            entity_id,
+            project_id,
+            old,
+            new,
+            created_at,
+        ) in enumerate(rows)
+    ]
+
+
 def _seed() -> dict[str, Any]:
     """Dữ liệu khởi tạo của một phiên mock."""
     created = "2026-09-01T08:00:00+00:00"
@@ -155,9 +225,10 @@ def _seed() -> dict[str, Any]:
         "profiles": {},  # version_id -> list[SchemaProfileOut]
         "quality": {},  # version_id -> QualityReportOut
         "suggestions": [],  # SuggestionOut
+        "audit": _seed_audit(),  # AuditLogOut
         "next_dataset_id": 1,
         "next_version_id": 1,
-        "next_id": 1,  # id chung cho profile/quality/...
+        "next_id": 100,  # id chung cho profile/quality/gợi ý/nhật ký (sau id nhật ký seed)
     }
     _add_dataset(
         state,
@@ -251,7 +322,9 @@ def handle(
             call.user = _token_user(token)
             if access == "admin" and call.user["role"] != "admin":
                 raise APIError(403, "Bạn không có quyền truy cập tài nguyên này.")
-        return handler(call)
+        result = handler(call)
+        _record_audit(call, handler.__name__, result)
+        return result
     raise APIError(404, "Không tìm thấy tài nguyên.")
 
 
@@ -777,3 +850,117 @@ def _export_excel(call: Call) -> bytes:
         frame.to_excel(writer, sheet_name="Dữ liệu", index=False)
         summary.to_excel(writer, sheet_name="Báo cáo chất lượng", index=False)
     return buffer.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# Nhật ký hoạt động (audit log)
+# ---------------------------------------------------------------------------
+
+
+def _project_of_dataset(dataset_id: int) -> int | None:
+    dataset = next((d for d in db()["datasets"] if d["id"] == dataset_id), None)
+    return dataset["project_id"] if dataset else None
+
+
+# Tên handler -> hàm trả (action, entity_type, entity_id, project_id, old_value, new_value).
+# Mã hành động theo kiểu backend/app/services/audit.py ("dataset.upload", "version.apply_rule"...).
+_AUDIT_RULES: dict[str, Callable[[Call, Any], tuple]] = {
+    "_create_project": lambda c, r: (
+        "project.create", "project", r["id"], r["id"], None, {"name": r["name"]}
+    ),
+    "_update_project": lambda c, r: (
+        "project.update", "project", r["id"], r["id"], None, {"name": r["name"]}
+    ),
+    "_delete_project": lambda c, r: (
+        "project.delete", "project", int(c.args[0]), None, {"project_id": int(c.args[0])}, None
+    ),
+    "_upload_dataset": lambda c, r: (
+        "dataset.upload", "dataset", r["dataset"]["id"], r["dataset"]["project_id"], None,
+        {"filename": r["dataset"]["original_filename"], "rows": r["first_version"]["row_count"]},
+    ),
+    "_decide_suggestion": lambda c, r: (
+        "suggestion.accept" if r["status"] == "accepted" else "suggestion.reject",
+        "suggestion", r["id"], None, None, {"rule": r["proposed_rule"]},
+    ),
+    "_apply_rule_set": lambda c, r: (
+        "version.apply_rule", "dataset", r["dataset_id"], _project_of_dataset(r["dataset_id"]),
+        {"version_number": r["version_number"] - 1},
+        {"version_number": r["version_number"], "change_summary": r["change_summary"]},
+    ),
+    "_undo": lambda c, r: (
+        "version.undo", "dataset", r["dataset_id"], _project_of_dataset(r["dataset_id"]),
+        None, {"version_number": r["version_number"]},
+    ),
+    "_redo": lambda c, r: (
+        "version.redo", "dataset", r["dataset_id"], _project_of_dataset(r["dataset_id"]),
+        None, {"version_number": r["version_number"]},
+    ),
+    "_restore": lambda c, r: (
+        "version.restore", "dataset", r["dataset_id"], _project_of_dataset(r["dataset_id"]),
+        None, {"version_number": r["version_number"]},
+    ),
+    "_change_password": lambda c, r: (
+        "auth.change_password", "user", c.user["id"], None, None, None
+    ),
+}  # fmt: skip
+
+
+def _record_audit(call: Call, handler_name: str, result: Any) -> None:
+    """Ghi một dòng nhật ký cho các thao tác ghi dữ liệu (gọi sau khi handler thành công)."""
+    rule = _AUDIT_RULES.get(handler_name)
+    if rule is None or call.user is None:
+        return
+    action, entity_type, entity_id, project_id, old, new = rule(call, result)
+    state = db()
+    state["audit"].append(
+        {
+            "id": _next_id(),
+            "user_id": call.user["id"],
+            "project_id": project_id,
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+            "action": action,
+            "old_value": old,
+            "new_value": new,
+            "ip_address": "127.0.0.1",
+            "created_at": _now(),
+        }
+    )
+
+
+def _newest_first(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(rows, key=lambda r: (r["created_at"], r["id"]), reverse=True)
+
+
+@route("GET", "/audit/me")
+def _audit_me(call: Call) -> list[dict[str, Any]]:
+    assert call.user is not None
+    return _newest_first([a for a in db()["audit"] if a["user_id"] == call.user["id"]])
+
+
+@route("GET", "/audit/all", access="admin")
+def _audit_all(call: Call) -> list[dict[str, Any]]:
+    return _newest_first(list(db()["audit"]))
+
+
+@route("GET", "/admin/users", access="admin")
+def _admin_list_users(call: Call) -> list[dict[str, Any]]:
+    return [public_user(u) for u in db()["users"]]
+
+
+# ---------------------------------------------------------------------------
+# Đổi mật khẩu
+# ---------------------------------------------------------------------------
+
+
+@route("POST", "/auth/change-password")
+def _change_password(call: Call) -> dict[str, str]:
+    assert call.user is not None
+    body = call.json or {}
+    if call.user["password"] != str(body.get("old_password", "")):
+        raise APIError(401, "Mật khẩu cũ không đúng.")
+    new_password = str(body.get("new_password", ""))
+    if len(new_password) < 8:
+        raise validation_error("new_password", "Mật khẩu phải có ít nhất 8 ký tự.")
+    call.user["password"] = new_password
+    return {"message": "Đã đổi mật khẩu."}

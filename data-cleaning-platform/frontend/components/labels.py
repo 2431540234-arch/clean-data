@@ -52,3 +52,43 @@ def describe_step(step: dict) -> str:
         return f"Đổi tên cột “{column}” thành “{new_name}”"
     label = op_label(op)
     return f"{label} — cột “{column}”" if column else f"{label} (toàn bộ bảng)"
+
+
+# Mã hành động nhật ký. Backend chỉ nêu ví dụ ("dataset.upload", "version.apply_rule", "user.lock")
+# trong app/services/audit.py; mã lạ hiển thị nguyên văn nên thêm mã mới không làm hỏng giao diện.
+ACTION_LABELS = {
+    "dataset.upload": "Tải lên dataset",
+    "dataset.export": "Xuất dữ liệu",
+    "project.create": "Tạo project",
+    "project.update": "Đổi tên project",
+    "project.delete": "Xóa project",
+    "suggestion.accept": "Chấp nhận gợi ý",
+    "suggestion.reject": "Từ chối gợi ý",
+    "version.apply_rule": "Áp dụng rule",
+    "version.undo": "Hoàn tác phiên bản",
+    "version.redo": "Làm lại phiên bản",
+    "version.restore": "Khôi phục phiên bản",
+    "auth.change_password": "Đổi mật khẩu",
+    "user.lock": "Khóa tài khoản",
+    "user.unlock": "Mở khóa tài khoản",
+    "user.change_role": "Đổi quyền",
+    "user.reset_password": "Đặt lại mật khẩu",
+}
+ENTITY_LABELS = {
+    "dataset": "Dataset",
+    "project": "Project",
+    "suggestion": "Gợi ý",
+    "user": "Người dùng",
+    "system": "Hệ thống",
+}
+
+
+def action_label(action: str) -> str:
+    """Nhãn tiếng Việt của mã hành động; mã lạ giữ nguyên."""
+    return ACTION_LABELS.get(action, action)
+
+
+def entity_label(entity_type: str, entity_id: int | None) -> str:
+    """Ví dụ "Dataset #1"; không có id thì chỉ tên loại."""
+    name = ENTITY_LABELS.get(entity_type, entity_type)
+    return f"{name} #{entity_id}" if entity_id is not None else name

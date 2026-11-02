@@ -187,7 +187,7 @@ def test_distribution_chart_draws_numbers_and_categories():
         from components.charts import render_distribution_chart
 
         render_distribution_chart(["1", "2", "2", "3"], "tuoi")
-        render_distribution_chart(["Hà Nội", "Hà Nội", "Đà Nẵng"], "tinh")
+        render_distribution_chart(["Ha Noi", "Ha Noi", "Da Nang"], "tinh")
 
     at = AppTest.from_function(app, default_timeout=30).run()
     assert not at.exception

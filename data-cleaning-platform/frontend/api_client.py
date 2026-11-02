@@ -185,3 +185,38 @@ def update_project(token: str, project_id: int, name: str) -> dict[str, Any]:
 def delete_project(token: str, project_id: int) -> dict[str, Any]:
     """Xóa project (chỉ owner hoặc admin)."""
     return request("DELETE", f"/api/v1/projects/{project_id}", token=token)
+
+
+def upload_dataset(
+    token: str, project_id: int, filename: str, content: bytes, mime: str | None = None
+) -> dict[str, Any]:
+    """Tải file CSV/Excel lên một project (DatasetUploadResponse). Có thể mất vài giây."""
+    return request(
+        "POST",
+        "/api/v1/datasets/upload",
+        token=token,
+        params={"project_id": project_id},
+        files={"file": (filename, content, mime or "application/octet-stream")},
+        timeout=120.0,
+    )
+
+
+def get_dataset(token: str, dataset_id: int) -> dict[str, Any]:
+    """Thông tin một dataset (DatasetOut)."""
+    return request("GET", f"/api/v1/datasets/{dataset_id}", token=token)
+
+
+def list_dataset_versions(token: str, dataset_id: int) -> list[dict[str, Any]]:
+    """Mọi phiên bản của một dataset (DatasetVersionOut)."""
+    return request("GET", f"/api/v1/datasets/{dataset_id}/versions", token=token)
+
+
+def select_sheet(token: str, dataset_id: int, sheet_name: str) -> dict[str, Any]:
+    """Chọn lại sheet khác của file Excel đã tải lên (DatasetUploadResponse)."""
+    return request(
+        "POST",
+        f"/api/v1/datasets/{dataset_id}/select-sheet",
+        token=token,
+        params={"sheet_name": sheet_name},
+        timeout=60.0,
+    )

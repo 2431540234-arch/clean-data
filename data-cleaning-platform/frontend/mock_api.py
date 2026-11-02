@@ -18,6 +18,7 @@ from typing import Any
 
 import streamlit as st
 
+import mock_data
 from api_client import APIError
 
 DEMO_HINT = "Tài khoản dùng thử: admin@example.com / Admin123! · user@example.com / User12345"
@@ -33,6 +34,54 @@ def _now() -> str:
 # ---------------------------------------------------------------------------
 # Trạng thái
 # ---------------------------------------------------------------------------
+
+
+def _add_dataset(
+    state: dict[str, Any],
+    *,
+    project_id: int,
+    user_id: int,
+    filename: str,
+    file_type: str,
+    file_size: int,
+    encoding: str | None,
+    sheet_name: str | None,
+    frame: Any,
+    created_at: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Tạo dataset + version đầu tiên trong trạng thái mock. Trả (dataset, version)."""
+    dataset_id, version_id = state["next_dataset_id"], state["next_version_id"]
+    state["next_dataset_id"] += 1
+    state["next_version_id"] += 1
+    dataset = {
+        "id": dataset_id,
+        "project_id": project_id,
+        "name": filename.rsplit(".", 1)[0],
+        "original_filename": filename,
+        "file_type": file_type,
+        "file_size": file_size,
+        "encoding": encoding,
+        "sheet_name": sheet_name,
+        "current_version_id": version_id,
+        "uploaded_by": user_id,
+        "created_at": created_at,
+        "updated_at": created_at,
+    }
+    version = {
+        "id": version_id,
+        "dataset_id": dataset_id,
+        "version_number": 1,
+        "row_count": len(frame),
+        "column_count": len(frame.columns),
+        "parent_version_id": None,
+        "change_summary": "Tải lên ban đầu",
+        "created_by": user_id,
+        "created_at": created_at,
+    }
+    state["datasets"].append(dataset)
+    state["versions"].append(version)
+    state["frames"][version_id] = frame
+    return dataset, version
 
 
 def _seed() -> dict[str, Any]:
@@ -78,7 +127,31 @@ def _seed() -> dict[str, Any]:
             "created_at": "2026-09-20T01:10:00+00:00",
         },
     ]
-    return {"users": users, "next_user_id": 3, "projects": projects, "next_project_id": 4}
+    state: dict[str, Any] = {
+        "users": users,
+        "next_user_id": 3,
+        "projects": projects,
+        "next_project_id": 4,
+        "datasets": [],
+        "versions": [],
+        "frames": {},  # version_id -> DataFrame
+        "raw_files": {},  # dataset_id -> (bytes, loại file), để chọn lại sheet
+        "next_dataset_id": 1,
+        "next_version_id": 1,
+    }
+    _add_dataset(
+        state,
+        project_id=1,
+        user_id=2,
+        filename=mock_data.SAMPLE_FILENAME,
+        file_type="csv",
+        file_size=len(mock_data.SAMPLE_CSV.encode()),
+        encoding="utf-8",
+        sheet_name=None,
+        frame=mock_data.sample_frame(),
+        created_at="2026-09-12T04:00:00+00:00",
+    )
+    return state
 
 
 def db() -> dict[str, Any]:
@@ -295,3 +368,122 @@ def _delete_project(call: Call) -> dict[str, str]:
     project = _get_project(int(call.args[0]), call.user)
     db()["projects"].remove(project)
     return {"message": "Đã xóa project."}
+
+
+# ---------------------------------------------------------------------------
+# Datasets
+# ---------------------------------------------------------------------------
+
+_UPLOAD_TYPES = {"csv": "csv", "tsv": "csv", "txt": "csv", "xlsx": "xlsx", "xls": "xlsx"}
+
+
+def _get_dataset(dataset_id: int, user: dict[str, Any]) -> dict[str, Any]:
+    """Lấy dataset và kiểm tra quyền qua project của nó."""
+    dataset = next((d for d in db()["datasets"] if d["id"] == dataset_id), None)
+    if dataset is None:
+        raise APIError(404, "Không tìm thấy tài nguyên.")
+    _get_project(dataset["project_id"], user)
+    return dataset
+
+
+def _first_version(dataset: dict[str, Any]) -> dict[str, Any]:
+    return next(
+        v for v in db()["versions"] if v["dataset_id"] == dataset["id"] and v["version_number"] == 1
+    )
+
+
+def _upload_response(dataset: dict[str, Any], sheet_names: list[str]) -> dict[str, Any]:
+    first = _first_version(dataset)
+    return {
+        "dataset": dataset,
+        "first_version": first,
+        "sheet_names": sheet_names,
+        "preview_rows": mock_data.preview_rows(db()["frames"][first["id"]]),
+    }
+
+
+@route("POST", "/datasets/upload")
+def _upload_dataset(call: Call) -> dict[str, Any]:
+    assert call.user is not None
+    try:
+        project_id = int(call.params.get("project_id"))
+    except (TypeError, ValueError):
+        raise validation_error("project_id", "Thiếu project_id.") from None
+    _get_project(project_id, call.user)
+    if not call.files or "file" not in call.files:
+        raise validation_error("file", "Chưa chọn file.")
+    filename, content = call.files["file"][0], call.files["file"][1]
+    extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    file_type = _UPLOAD_TYPES.get(extension)
+    if file_type is None:
+        raise APIError(422, "Định dạng file không được hỗ trợ. Chỉ nhận CSV hoặc Excel.")
+    if len(content) > mock_data.MAX_UPLOAD_MB * 1024 * 1024:
+        raise APIError(422, f"File vượt quá {mock_data.MAX_UPLOAD_MB} MB.")
+    try:
+        if file_type == "csv":
+            frame, encoding = mock_data.read_csv_bytes(content)
+            sheet_names: list[str] = []
+            sheet = None
+        else:
+            sheet_names = mock_data.excel_sheet_names(content)
+            sheet = sheet_names[0]
+            frame, encoding = mock_data.read_excel_bytes(content, sheet), None
+    except mock_data.UploadProblem as exc:
+        raise APIError(422, str(exc)) from exc
+    except Exception as exc:
+        raise APIError(
+            422, "Không đọc được nội dung file. File có thể bị hỏng hoặc sai định dạng."
+        ) from exc
+    if frame.empty or len(frame.columns) == 0:
+        raise APIError(422, "File không có dữ liệu.")
+
+    state = db()
+    dataset, _ = _add_dataset(
+        state,
+        project_id=project_id,
+        user_id=call.user["id"],
+        filename=filename,
+        file_type=file_type,
+        file_size=len(content),
+        encoding=encoding,
+        sheet_name=sheet,
+        frame=frame,
+        created_at=_now(),
+    )
+    state["raw_files"][dataset["id"]] = (content, file_type)
+    return _upload_response(dataset, sheet_names)
+
+
+@route("GET", r"/datasets/(\d+)")
+def _read_dataset(call: Call) -> dict[str, Any]:
+    assert call.user is not None
+    return _get_dataset(int(call.args[0]), call.user)
+
+
+@route("GET", r"/datasets/(\d+)/versions")
+def _list_dataset_versions(call: Call) -> list[dict[str, Any]]:
+    assert call.user is not None
+    dataset = _get_dataset(int(call.args[0]), call.user)
+    return [v for v in db()["versions"] if v["dataset_id"] == dataset["id"]]
+
+
+@route("POST", r"/datasets/(\d+)/select-sheet")
+def _select_sheet(call: Call) -> dict[str, Any]:
+    assert call.user is not None
+    state = db()
+    dataset = _get_dataset(int(call.args[0]), call.user)
+    raw = state["raw_files"].get(dataset["id"])
+    if raw is None or raw[1] != "xlsx":
+        raise APIError(422, "Dataset này không phải file Excel.")
+    sheet_names = mock_data.excel_sheet_names(raw[0])
+    sheet = call.params.get("sheet_name")
+    if sheet not in sheet_names:
+        raise APIError(422, "Sheet không tồn tại trong file.")
+    frame = mock_data.read_excel_bytes(raw[0], sheet)
+    if frame.empty:
+        raise APIError(422, "Sheet này không có dữ liệu.")
+    first = _first_version(dataset)
+    state["frames"][first["id"]] = frame
+    first.update(row_count=len(frame), column_count=len(frame.columns))
+    dataset.update(sheet_name=sheet, current_version_id=first["id"], updated_at=_now())
+    return _upload_response(dataset, sheet_names)

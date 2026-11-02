@@ -241,7 +241,8 @@
 
 /* ---------- Stepper (luồng làm sạch) ---------- */
 
-.dc-stepper {
+/* .stApp để thắng padding mặc định của <ol> trong markdown Streamlit */
+.stApp .dc-stepper {
     display: flex;
     flex-wrap: wrap;
     gap: var(--sp-1) var(--sp-2);
@@ -250,10 +251,11 @@
     padding: 0;
 }
 
-.dc-step {
+.stApp .dc-step {
     display: flex;
     align-items: center;
     gap: var(--sp-2);
+    margin: 0;
     padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-1);
     border-radius: var(--radius-pill);
     color: var(--c-text-muted);

@@ -133,6 +133,13 @@ Frontend có nhãn tiếng Việt cho các mã `action` sau (mã khác vẫn hi�
 | POST | `/admin/users/{user_id}/reset-password` | - | `{"new_password"?: str, "message": str}`. **Cần quyết định**: trả mật khẩu tạm để admin báo cho user, hay gửi kênh khác. Frontend hiển thị `new_password` nếu có |
 | GET | `/admin/stats` | - | `SystemStatsOut` `{total_users, total_admins, active_users, total_projects, total_datasets, total_ai_calls, average_quality_score}` |
 
+Hợp đồng frontend (trang Quản trị người dùng và Thống kê) dựa vào:
+- `PATCH /admin/users/{id}`: chỉ gửi trường cần đổi (`role` và/hoặc `is_active`); trả `UserOut` đã cập nhật. Nên từ chối (4xx kèm `detail` tiếng Việt) việc **hạ quyền hoặc khóa quản trị viên đang hoạt động cuối cùng**; giao diện đã chặn admin tự khóa/hạ quyền chính mình nhưng backend vẫn phải kiểm tra.
+- `POST /admin/users/{id}/reset-password`: nếu response có `new_password` (mật khẩu tạm) thì giao diện hiển thị một lần cho admin; nếu không có thì chỉ báo thành công (kênh gửi mật khẩu do backend quyết định).
+- Khóa tài khoản phải làm `POST /auth/login` trả lỗi và token cũ bị từ chối (`get_current_user` đã kiểm tra `is_active`). Giao diện luôn hiện câu chung "Email hoặc mật khẩu không đúng." khi đăng nhập bị từ chối.
+- `GET /admin/stats`: `average_quality_score` trên thang 0-100 (giao diện vẽ gauge); `total_ai_calls` là tổng số lần gọi AI.
+- Mỗi thao tác quản trị nên ghi nhật ký (`user.lock`, `user.unlock`, `user.change_role`, `user.reset_password`).
+
 ### 1.11 Rules (rule template)
 
 Frontend giai đoạn này **chưa dùng** `/rules/*`; còn khai báo, chưa cài đặt:

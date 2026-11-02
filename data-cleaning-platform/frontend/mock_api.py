@@ -12,7 +12,9 @@ Tài khoản mẫu:
 
 import io
 import os
+import random
 import re
+import string
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -225,6 +227,7 @@ def _seed() -> dict[str, Any]:
         "profiles": {},  # version_id -> list[SchemaProfileOut]
         "quality": {},  # version_id -> QualityReportOut
         "suggestions": [],  # SuggestionOut
+        "ai_calls": 0,  # số lần sinh gợi ý (thống kê hệ thống)
         "audit": _seed_audit(),  # AuditLogOut
         "next_dataset_id": 1,
         "next_version_id": 1,
@@ -269,6 +272,7 @@ class Call:
     files: dict[str, Any] | None
     args: tuple[str, ...] = ()
     user: dict[str, Any] | None = field(default=None)
+    audit_extra: dict[str, Any] | None = field(default=None)  # handler gắn thêm cho nhật ký
 
 
 Handler = Callable[[Call], Any]
@@ -672,6 +676,7 @@ def _generate_suggestions(call: Call) -> list[dict[str, Any]]:
         raise validation_error("version_id", "Thiếu version_id.")
     version = _get_version(version_id, call.user)
     state["suggestions"] = [s for s in state["suggestions"] if s["version_id"] != version["id"]]
+    state["ai_calls"] += 1
     now = _now()
     created = []
     for draft in mock_suggest.generate(state["frames"][version["id"]]):
@@ -907,6 +912,9 @@ _AUDIT_RULES: dict[str, Callable[[Call, Any], tuple]] = {
 
 def _record_audit(call: Call, handler_name: str, result: Any) -> None:
     """Ghi một dòng nhật ký cho các thao tác ghi dữ liệu (gọi sau khi handler thành công)."""
+    if handler_name in {"_admin_update_user", "_admin_reset_password"} and call.user is not None:
+        _record_admin_audit(call, handler_name)
+        return
     rule = _AUDIT_RULES.get(handler_name)
     if rule is None or call.user is None:
         return
@@ -928,6 +936,46 @@ def _record_audit(call: Call, handler_name: str, result: Any) -> None:
     )
 
 
+def _append_audit(call: Call, action: str, user: dict[str, Any], old: Any, new: Any) -> None:
+    assert call.user is not None
+    db()["audit"].append(
+        {
+            "id": _next_id(),
+            "user_id": call.user["id"],
+            "project_id": None,
+            "entity_type": "user",
+            "entity_id": user["id"],
+            "action": action,
+            "old_value": old,
+            "new_value": new,
+            "ip_address": "127.0.0.1",
+            "created_at": _now(),
+        }
+    )
+
+
+def _record_admin_audit(call: Call, handler_name: str) -> None:
+    """Nhật ký thao tác quản trị: mỗi thay đổi thật một dòng (user.lock, user.change_role...)."""
+    extra = call.audit_extra or {}
+    user = extra["user"]
+    if handler_name == "_admin_reset_password":
+        _append_audit(call, "user.reset_password", user, None, None)
+        return
+    changes = extra.get("changes", {})
+    if "is_active" in changes:
+        old, new = changes["is_active"]
+        _append_audit(
+            call,
+            "user.unlock" if new else "user.lock",
+            user,
+            {"is_active": old},
+            {"is_active": new},
+        )
+    if "role" in changes:
+        old, new = changes["role"]
+        _append_audit(call, "user.change_role", user, {"role": old}, {"role": new})
+
+
 def _newest_first(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda r: (r["created_at"], r["id"]), reverse=True)
 
@@ -941,11 +989,6 @@ def _audit_me(call: Call) -> list[dict[str, Any]]:
 @route("GET", "/audit/all", access="admin")
 def _audit_all(call: Call) -> list[dict[str, Any]]:
     return _newest_first(list(db()["audit"]))
-
-
-@route("GET", "/admin/users", access="admin")
-def _admin_list_users(call: Call) -> list[dict[str, Any]]:
-    return [public_user(u) for u in db()["users"]]
 
 
 # ---------------------------------------------------------------------------
@@ -964,3 +1007,79 @@ def _change_password(call: Call) -> dict[str, str]:
         raise validation_error("new_password", "Mật khẩu phải có ít nhất 8 ký tự.")
     call.user["password"] = new_password
     return {"message": "Đã đổi mật khẩu."}
+
+
+# ---------------------------------------------------------------------------
+# Quản trị người dùng và thống kê (chỉ admin)
+# ---------------------------------------------------------------------------
+
+
+def _get_user(user_id: int) -> dict[str, Any]:
+    user = next((u for u in db()["users"] if u["id"] == user_id), None)
+    if user is None:
+        raise APIError(404, "Không tìm thấy tài nguyên.")
+    return user
+
+
+def _active_admins() -> list[dict[str, Any]]:
+    return [u for u in db()["users"] if u["role"] == "admin" and u["is_active"]]
+
+
+@route("GET", "/admin/users", access="admin")
+def _admin_list_users(call: Call) -> list[dict[str, Any]]:
+    return [public_user(u) for u in db()["users"]]
+
+
+@route("PATCH", r"/admin/users/(\d+)", access="admin")
+def _admin_update_user(call: Call) -> dict[str, Any]:
+    user = _get_user(int(call.args[0]))
+    body = call.json or {}
+    role, is_active = body.get("role"), body.get("is_active")
+    if role is not None and role not in {"admin", "user"}:
+        raise validation_error("role", "Quyền phải là admin hoặc user.")
+    if is_active is not None and not isinstance(is_active, bool):
+        raise validation_error("is_active", "is_active phải là true hoặc false.")
+    losing_admin = (role == "user" and user["role"] == "admin") or (
+        is_active is False and user["role"] == "admin" and user["is_active"]
+    )
+    if losing_admin and _active_admins() == [user]:
+        raise APIError(422, "Không thể hạ quyền hoặc khóa quản trị viên cuối cùng.")
+    changes = {}
+    if role is not None and role != user["role"]:
+        changes["role"] = (user["role"], role)
+    if is_active is not None and is_active != user["is_active"]:
+        changes["is_active"] = (user["is_active"], is_active)
+    for column, (_, new_value) in changes.items():
+        user[column] = new_value
+    call.audit_extra = {"user": user, "changes": changes}  # cho hook nhật ký
+    return public_user(user)
+
+
+@route("POST", r"/admin/users/(\d+)/reset-password", access="admin")
+def _admin_reset_password(call: Call) -> dict[str, str]:
+    user = _get_user(int(call.args[0]))
+    new_password = "Tam" + "".join(random.choices(string.ascii_letters + string.digits, k=8))
+    user["password"] = new_password
+    call.audit_extra = {"user": user}
+    return {"message": "Đã đặt lại mật khẩu.", "new_password": new_password}
+
+
+@route("GET", "/admin/stats", access="admin")
+def _admin_stats(call: Call) -> dict[str, Any]:
+    state = db()
+    users = state["users"]
+    scores = [
+        mock_profiling.quality_report(
+            state["frames"][d["current_version_id"]], d["current_version_id"], 0, _now()
+        )["overall_score"]
+        for d in state["datasets"]
+    ]
+    return {
+        "total_users": len(users),
+        "total_admins": sum(1 for u in users if u["role"] == "admin"),
+        "active_users": sum(1 for u in users if u["is_active"]),
+        "total_projects": len(state["projects"]),
+        "total_datasets": len(state["datasets"]),
+        "total_ai_calls": state["ai_calls"],
+        "average_quality_score": round(sum(scores) / len(scores), 1) if scores else 0.0,
+    }

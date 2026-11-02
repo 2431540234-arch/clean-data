@@ -19,6 +19,12 @@ _ROW_HEIGHT = 34
 _MIN_HEIGHT = 160
 _NUMERIC_SHARE = 0.9  # tỉ lệ giá trị là số tối thiểu để vẽ histogram
 _MAX_CATEGORIES = 20
+# Tên mục nằm ở chú thích (không vẽ trên lát cắt) để không bị cắt chữ trên màn hình hẹp.
+_DONUT_LAYOUT = {
+    "showlegend": True,
+    "legend": {"orientation": "h", "x": 0.5, "xanchor": "center", "y": -0.05},
+    "margin": {"l": 0, "r": 0, "t": 10, "b": 10},
+}
 _MIN_AXIS_PERCENT = 10  # trục tỉ lệ thiếu tối thiểu 0-10% để thanh nhỏ vẫn đọc được
 
 
@@ -53,11 +59,11 @@ def render_type_chart(column_profiles: list[dict[str, Any]]) -> None:
             values=list(counts.values()),
             hole=0.55,
             marker={"colors": _PALETTE},
-            textinfo="label+value",
+            textinfo="value",
             sort=False,
         )
     )
-    figure.update_layout(height=320, showlegend=False, margin={"l": 0, "r": 0, "t": 10, "b": 10})
+    figure.update_layout(height=340, **_DONUT_LAYOUT)
     st.plotly_chart(figure, theme="streamlit", use_container_width=True)
 
 
@@ -87,4 +93,25 @@ def render_distribution_chart(values: list[Any], column_name: str) -> None:
             labels={"x": column_name, "y": "Số dòng"},
         )
     figure.update_layout(margin={"l": 0, "r": 0, "t": 10, "b": 0}, height=320)
+    st.plotly_chart(figure, theme="streamlit", use_container_width=True)
+
+
+def render_donut_chart(
+    items: list[tuple[str, int | float]], colors: list[str] | None = None
+) -> None:
+    """Biểu đồ vành khuyên cho các cặp (nhãn, giá trị); bỏ qua mục có giá trị 0."""
+    shown = [(label, value) for label, value in items if value]
+    if not shown:
+        return
+    figure = go.Figure(
+        go.Pie(
+            labels=[label for label, _ in shown],
+            values=[value for _, value in shown],
+            hole=0.55,
+            marker={"colors": colors or _PALETTE},
+            textinfo="value",
+            sort=False,
+        )
+    )
+    figure.update_layout(height=300, **_DONUT_LAYOUT)
     st.plotly_chart(figure, theme="streamlit", use_container_width=True)

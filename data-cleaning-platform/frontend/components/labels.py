@@ -92,3 +92,11 @@ def entity_label(entity_type: str, entity_id: int | None) -> str:
     """Ví dụ "Dataset #1"; không có id thì chỉ tên loại."""
     name = ENTITY_LABELS.get(entity_type, entity_type)
     return f"{name} #{entity_id}" if entity_id is not None else name
+
+
+ROLE_LABELS = {"admin": "Quản trị viên", "user": "Người dùng"}
+
+
+def role_label(role: str) -> str:
+    """Nhãn tiếng Việt của quyền; quyền lạ giữ nguyên."""
+    return ROLE_LABELS.get(role, role)

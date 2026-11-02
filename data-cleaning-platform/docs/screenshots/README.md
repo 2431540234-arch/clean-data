@@ -84,3 +84,21 @@ Một số ảnh của các trang làm trước (Trang chủ ở mobile, Tải l
 | `tai-khoan__sai-mat-khau-hien-tai` | Backend từ chối mật khẩu cũ |
 | `tai-khoan__doi-thanh-cong` | Đổi thành công (toast, vẫn đăng nhập) |
 | `tai-khoan__mobile` | Bố cục 375px |
+
+## Quản trị người dùng
+| Ảnh | Nội dung |
+|---|---|
+| `quan-tri-nguoi-dung__danh-sach` | KPI, tìm kiếm, bộ lọc quyền/trạng thái, bảng người dùng |
+| `quan-tri-nguoi-dung__tim-kiem` | Tìm theo tên/email |
+| `quan-tri-nguoi-dung__khung-quan-ly` | Khung quản lý: đổi quyền, khóa/mở khóa, đặt lại mật khẩu |
+| `quan-tri-nguoi-dung__dialog-xac-nhan-khoa` / `...__sau-khi-khoa` | Xác nhận khóa và kết quả (KPI "Đã khóa") |
+| `quan-tri-nguoi-dung__mat-khau-tam-hien-mot-lan` | Mật khẩu tạm sau khi đặt lại, hiển thị một lần |
+| `quan-tri-nguoi-dung__tu-quan-ly-bi-chan` | Admin không tự khóa/hạ quyền chính mình |
+| `quan-tri-nguoi-dung__loi-may-chu` | Lỗi máy chủ thân thiện |
+
+## Thống kê hệ thống
+| Ảnh | Nội dung |
+|---|---|
+| `thong-ke-he-thong__tong-quan` | 6 chỉ số, 2 biểu đồ vành khuyên, gauge điểm chất lượng TB |
+| `thong-ke-he-thong__mobile` | Bố cục 375px |
+| `thong-ke-he-thong__loi-may-chu` | Lỗi máy chủ thân thiện |

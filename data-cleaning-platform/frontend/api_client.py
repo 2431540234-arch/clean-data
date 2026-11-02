@@ -353,3 +353,25 @@ def change_password(token: str, old_password: str, new_password: str) -> dict[st
         token=token,
         json={"old_password": old_password, "new_password": new_password},
     )
+
+
+def admin_update_user(
+    token: str, user_id: int, *, role: str | None = None, is_active: bool | None = None
+) -> dict[str, Any]:
+    """Đổi quyền và/hoặc khóa/mở một user (chỉ admin); chỉ gửi các trường được truyền."""
+    payload: dict[str, Any] = {}
+    if role is not None:
+        payload["role"] = role
+    if is_active is not None:
+        payload["is_active"] = is_active
+    return request("PATCH", f"/api/v1/admin/users/{user_id}", token=token, json=payload)
+
+
+def admin_reset_password(token: str, user_id: int) -> dict[str, Any]:
+    """Đặt lại mật khẩu cho một user; response có thể kèm `new_password` (mật khẩu tạm)."""
+    return request("POST", f"/api/v1/admin/users/{user_id}/reset-password", token=token)
+
+
+def admin_stats(token: str) -> dict[str, Any]:
+    """Thống kê tổng quan hệ thống (SystemStatsOut, chỉ admin)."""
+    return request("GET", "/api/v1/admin/stats", token=token)

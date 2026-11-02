@@ -72,18 +72,20 @@ def call_api():
 
         import api_client
 
-        name, args = st.session_state["_call"]
+        name, args, kwargs = st.session_state["_call"]
         func = getattr(api_client, name)
         token = st.session_state["access_token"]
         try:
-            st.session_state["_result"] = (func(token, *args), None)
+            st.session_state["_result"] = (func(token, *args, **kwargs), None)
         except api_client.APIError as exc:
             st.session_state["_result"] = (None, exc)
 
-    def _call(role: str, name: str, *args: Any, state: dict[str, Any] | None = None):
+    def _call(
+        as_role: str, name: str, *args: Any, state: dict[str, Any] | None = None, **kwargs: Any
+    ):
         at = AppTest.from_function(script, default_timeout=30)
-        at.session_state["access_token"] = _ROLES[role][0]
-        at.session_state["_call"] = (name, args)
+        at.session_state["access_token"] = _ROLES[as_role][0]
+        at.session_state["_call"] = (name, args, kwargs)
         for key, value in (state or {}).items():
             at.session_state[key] = copy.deepcopy(value)
         at.run()

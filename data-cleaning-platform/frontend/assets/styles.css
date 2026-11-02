@@ -290,6 +290,14 @@
     color: var(--c-primary-text);
 }
 
+/* Tên cột/giá trị kỹ thuật: font đơn cách, giữ màu chữ thường (inline code của Streamlit có
+   màu xanh nhạt không đạt tương phản AA) */
+.dc-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.9em;
+    overflow-wrap: anywhere;
+}
+
 /* Chỉ dành cho trình đọc màn hình */
 .dc-sr-only {
     position: absolute;

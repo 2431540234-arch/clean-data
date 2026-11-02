@@ -19,6 +19,7 @@ from typing import Any
 import streamlit as st
 
 import mock_data
+import mock_mapping
 import mock_profiling
 from api_client import APIError
 
@@ -547,3 +548,21 @@ def _get_quality(call: Call) -> dict[str, Any]:
             frame, version["id"], _next_id(), _now()
         )
     return state["quality"][version["id"]]
+
+
+# ---------------------------------------------------------------------------
+# Mapping cột
+# ---------------------------------------------------------------------------
+
+
+@route("POST", r"/mapping/(\d+)/suggest")
+def _suggest_mapping(call: Call) -> dict[str, str | None]:
+    assert call.user is not None
+    version = _get_version(int(call.args[0]), call.user)
+    targets = call.json
+    if not isinstance(targets, list) or not all(isinstance(t, str) for t in targets):
+        raise validation_error("body", "Cần một danh sách tên cột chuẩn.")
+    if not targets:
+        raise validation_error("body", "Danh sách cột chuẩn không được rỗng.")
+    columns = [str(c) for c in db()["frames"][version["id"]].columns]
+    return mock_mapping.suggest_mapping(columns, targets)

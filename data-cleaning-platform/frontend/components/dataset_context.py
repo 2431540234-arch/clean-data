@@ -9,7 +9,14 @@ from typing import Any
 
 import streamlit as st
 
-from api_client import APIError, get_dataset, get_project, list_dataset_versions
+from api_client import (
+    APIError,
+    get_dataset,
+    get_profiling,
+    get_project,
+    list_dataset_versions,
+    run_profiling,
+)
 from components.navigation import get_page
 from components.ui import empty_state, error_state, safe_call
 from state import get_context, get_token, set_context, set_flash
@@ -115,3 +122,19 @@ def dataset_context_bar() -> ActiveDataset:
             if st.button("Tải file mới lên", icon=":material/upload_file:", key="ctx_goto_upload"):
                 st.switch_page(get_page("upload").file)
     return ActiveDataset(dataset=dataset, version=version)
+
+
+def load_profile(
+    version_id: int, *, force: bool = False
+) -> tuple[dict[str, Any] | None, APIError | None]:
+    """Lấy profiling đã lưu của phiên bản; chưa có (404) hoặc force=True thì chạy mới.
+
+    Returns:
+        (ProfilingResult, None) hoặc (None, APIError).
+    """
+    token = get_token()
+    if not force:
+        result, error = safe_call("Đang tải kết quả phân tích…", get_profiling, token, version_id)
+        if error is None or error.status_code != 404:
+            return result, error
+    return safe_call("Đang phân tích dữ liệu…", run_profiling, token, version_id)

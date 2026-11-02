@@ -5,9 +5,9 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-from api_client import get_profiling, get_quality, run_profiling
+from api_client import get_quality
 from components.charts import render_missing_ratio_chart, render_type_chart
-from components.dataset_context import dataset_context_bar
+from components.dataset_context import dataset_context_bar, load_profile
 from components.formatting import format_number, format_percent
 from components.labels import type_label
 from components.navigation import get_page
@@ -25,16 +25,6 @@ from state import get_token
 
 _EMPTY = "—"
 _HIGH_MISSING_RATIO = 0.1  # từ ngưỡng này cột được ghi chú "Thiếu nhiều"
-
-
-def _load_profile(version_id: int, *, force: bool) -> tuple[dict[str, Any] | None, Any]:
-    """Lấy profiling đã lưu; chưa có (404) hoặc bấm Phân tích lại thì chạy mới."""
-    token = get_token()
-    if not force:
-        result, error = safe_call("Đang tải kết quả phân tích…", get_profiling, token, version_id)
-        if error is None or error.status_code != 404:
-            return result, error
-    return safe_call("Đang phân tích dữ liệu…", run_profiling, token, version_id)
 
 
 def _column_table(columns: list[dict[str, Any]]) -> pd.DataFrame:
@@ -84,7 +74,7 @@ active = dataset_context_bar()
 version = active.version
 
 rerun = st.button("Phân tích lại", icon=":material/refresh:", help="Chạy lại phân tích dữ liệu")
-profile, error = _load_profile(version["id"], force=rerun)
+profile, error = load_profile(version["id"], force=rerun)
 if error is not None:
     error_state(error, key="overview")
     st.stop()

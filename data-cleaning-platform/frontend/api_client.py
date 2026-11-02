@@ -240,3 +240,14 @@ def get_quality(token: str, version_id: int) -> dict[str, Any]:
 def get_project(token: str, project_id: int) -> dict[str, Any]:
     """Thông tin một project (ProjectOut)."""
     return request("GET", f"/api/v1/projects/{project_id}", token=token)
+
+
+def suggest_mapping(token: str, version_id: int, target_schema: list[str]) -> dict[str, str | None]:
+    """Gợi ý mapping cột nguồn -> cột đích (None nếu không khớp); body là mảng JSON cột chuẩn."""
+    return request(
+        "POST",
+        f"/api/v1/mapping/{version_id}/suggest",
+        token=token,
+        json=target_schema,
+        timeout=120.0,  # tầng 2 có thể gọi AI nên chậm hơn
+    )

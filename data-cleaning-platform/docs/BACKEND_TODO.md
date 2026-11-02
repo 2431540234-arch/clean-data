@@ -36,7 +36,7 @@ Schema tham chiếu `backend/app/schemas/*.py`. Lỗi trả dạng `{"detail": "
 |---|---|---|---|---|
 | GET | `/projects` | - | `list[ProjectOut]` `{id, name, owner_id, created_at}` | Admin thấy tất cả, user chỉ thấy của mình |
 | POST | `/projects` | `ProjectCreate` `{name(1..255)}` | `ProjectOut` | |
-| GET | `/projects/{project_id}` | - | `ProjectOut` | 403 nếu không phải owner/admin |
+| GET | `/projects/{project_id}` | - | `ProjectOut` | 403 nếu không phải owner/admin. Frontend dùng để lấy tên project khi mở dataset theo ID |
 | PUT | `/projects/{project_id}` | `ProjectUpdate` `{name}` | `ProjectOut` | |
 | DELETE | `/projects/{project_id}` | - | `{"message": str}` | Frontend hỏi xác nhận trước khi gọi |
 
@@ -56,6 +56,8 @@ Schema tham chiếu `backend/app/schemas/*.py`. Lỗi trả dạng `{"detail": "
 | POST | `/profiling/{version_id}/run` | - | `ProfilingResult` `{version_id, columns: list[SchemaProfileOut]}` |
 | GET | `/profiling/{version_id}` | - | `ProfilingResult` (404 nếu chưa chạy; frontend khi đó gọi `run`) |
 
+`GET /profiling/{version_id}` phải trả **404** khi chưa chạy profiling: frontend khi đó tự gọi `POST .../run`. `detected_format` là chuỗi hiển thị nguyên văn (cột ngày). Frontend không dùng `QualityReportOut.issue_summary` (chưa có định dạng cố định).
+
 `SchemaProfileOut`: `id, version_id, column_name, column_index, inferred_type, null_count,
 unique_count, null_ratio, unique_ratio, min_value, max_value, mean_value, sample_values, detected_format,
 created_at`. Frontend dùng `null_ratio`, `inferred_type`, `unique_count`, `sample_values` để vẽ bảng và biểu đồ.
@@ -65,6 +67,8 @@ created_at`. Frontend dùng `null_ratio`, `inferred_type`, `unique_count`, `samp
 | Method | Path | Request | Response |
 |---|---|---|---|
 | POST | `/mapping/{version_id}/suggest` | body là **mảng JSON** `list[str]` (các cột chuẩn), ví dụ `["ho_ten","so_dien_thoai"]` | `dict[str, str\|null]` (cột nguồn -> cột đích, `null` nếu không khớp) |
+
+Frontend dựa vào: **khóa = tên cột nguồn** (đủ mọi cột của version, đúng thứ tự), **giá trị = tên cột chuẩn hoặc `null`** (khớp với `match_columns(source_columns, target_schema)`). Frontend không có endpoint lưu mapping: mapping được xác nhận sẽ thành các bước rule `rename_column` (`column` = tên cũ, `params.new_name` = tên mới) đi qua `POST /preview` rồi `POST /versions/{dataset_id}/apply`.
 
 ### 1.6 Suggestions
 

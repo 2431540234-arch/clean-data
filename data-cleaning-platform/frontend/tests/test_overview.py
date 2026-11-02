@@ -7,6 +7,7 @@ from conftest import find_button
 import api_client
 import mock_data
 import mock_profiling
+from components import dataset_context
 
 CONTEXT = {"work_context": {"dataset_id": 1}}
 
@@ -149,7 +150,7 @@ def test_page_api_error_shows_friendly_state(run_view, monkeypatch):
     def boom(token, version_id):
         raise api_client.APIError(500, "Máy chủ gặp sự cố hoặc chức năng này chưa sẵn sàng.")
 
-    monkeypatch.setattr(api_client, "get_profiling", boom)
+    monkeypatch.setattr(dataset_context, "get_profiling", boom)
     at = run_view("overview", role="user", state=CONTEXT)
     assert not at.exception
     assert any("chưa sẵn sàng" in e.value for e in at.error)

@@ -141,15 +141,31 @@ if not projects:
         _create_dialog()
     st.stop()
 
-kpis = [
-    ("Số project", format_number(len(projects))),
-    ("Tạo gần nhất", format_date(projects[0]["created_at"])),
-]
-if user.get("role") == "admin":
-    kpis.append(("Số chủ sở hữu", format_number(len({p["owner_id"] for p in projects}))))
-for column, (label, value) in zip(st.columns(len(kpis)), kpis, strict=True):
-    with column:
-        metric_card(label, value)
+_KPI_COLUMNS = 4  # số thẻ KPI tối đa mỗi hàng; thêm thẻ mới chỉ cần thêm vào _kpi_tiles
+
+
+def _kpi_tiles(projects: list[dict[str, Any]], user: dict[str, Any]) -> list[tuple[str, str]]:
+    """Các thẻ KPI (nhãn, giá trị) tính từ dữ liệu có thật của ProjectOut.
+
+    TODO(backend): thêm "Số dataset" và "Điểm chất lượng TB" khi backend có dữ liệu
+    (docs/BACKEND_TODO.md, mục 2 #1 và #6): chỉ cần thêm một dòng vào danh sách này.
+    """
+    tiles = [
+        ("Số project", format_number(len(projects))),
+        ("Tạo gần nhất", format_date(projects[0]["created_at"])),
+    ]
+    if user.get("role") == "admin":
+        tiles.append(("Số chủ sở hữu", format_number(len({p["owner_id"] for p in projects}))))
+    return tiles
+
+
+tiles = _kpi_tiles(projects, user)
+for start in range(0, len(tiles), _KPI_COLUMNS):
+    for column, (label, value) in zip(
+        st.columns(_KPI_COLUMNS), tiles[start : start + _KPI_COLUMNS], strict=False
+    ):
+        with column:
+            metric_card(label, value)
 
 st.subheader("Project")
 for start in range(0, len(projects), _COLUMNS):

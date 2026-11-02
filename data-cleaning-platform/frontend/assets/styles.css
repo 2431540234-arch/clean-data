@@ -311,6 +311,36 @@
     border: 0;
 }
 
+/* ---------- Việt hóa ô tải file (st.file_uploader) ----------
+ * PHỤ THUỘC NỘI BỘ STREAMLIT 1.41.1 (data-testid và cấu trúc DOM của dropzone). Streamlit không có
+ * tham số đổi ngôn ngữ cho các chuỗi này. Rà lại khi nâng phiên bản streamlit.
+ * AN TOÀN KHI HỎNG: mỗi quy tắc dùng selector con trực tiếp và vừa ẩn chữ gốc (font-size: 0) vừa
+ * thêm chữ Việt (::after) trong CÙNG một nhóm; selector không còn khớp thì cả hai cùng không xảy
+ * ra và chữ tiếng Anh gốc vẫn hiện (không bao giờ để ô trống).
+ * Giới hạn "50MB" và danh sách loại file phải khớp MAX_UPLOAD_MB / _ACCEPTED_TYPES trong
+ * views/upload.py. */
+[data-testid="stFileUploaderDropzoneInstructions"] > div > span {
+    font-size: 0;
+}
+[data-testid="stFileUploaderDropzoneInstructions"] > div > span::after {
+    content: "Kéo thả file vào đây";
+    font-size: var(--fs-16);
+}
+[data-testid="stFileUploaderDropzoneInstructions"] > div > small {
+    font-size: 0;
+}
+[data-testid="stFileUploaderDropzoneInstructions"] > div > small::after {
+    content: "Tối đa 50MB · CSV, XLSX";
+    font-size: var(--fs-14);
+}
+[data-testid="stFileUploaderDropzone"] > button {
+    font-size: 0;
+}
+[data-testid="stFileUploaderDropzone"] > button::after {
+    content: "Chọn file";
+    font-size: var(--fs-16);
+}
+
 /* ---------- Mobile: chỉ cần không vỡ bố cục ---------- */
 
 @media (max-width: 640px) {

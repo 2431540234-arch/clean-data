@@ -2,3 +2,4 @@ streamlit==1.41.1
 plotly==5.24.1
 httpx==0.28.1
 pandas==2.2.3
+openpyxl==3.1.5  # chỉ dùng cho chế độ mock (FRONTEND_MOCK=1): mock đọc file Excel tải lên

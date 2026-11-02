@@ -22,7 +22,7 @@ from components.ui import (
 from state import get_context, get_token, set_context, set_flash
 
 MAX_UPLOAD_MB = 50  # khớp backend MAX_UPLOAD_MB và server.maxUploadSize trong config.toml
-_ACCEPTED_TYPES = ["csv", "xlsx", "xls"]
+_ACCEPTED_TYPES = ["csv", "xlsx"]  # khớp chữ trong khối CSS "Việt hóa ô tải file"
 _NONCE_KEY = "upload_nonce"  # đổi key của file_uploader để xóa file đã chọn
 
 
@@ -151,10 +151,7 @@ projects = sorted(projects, key=lambda p: p["created_at"], reverse=True)
 if result is None:
     with section(
         "Tải file lên",
-        caption=(
-            f"Hỗ trợ CSV và Excel (.xlsx, .xls), tối đa {MAX_UPLOAD_MB} MB. "
-            "Kéo thả file vào khung bên dưới hoặc bấm “Browse files” để chọn."
-        ),
+        caption=f"Hỗ trợ file CSV và Excel (.xlsx), tối đa {MAX_UPLOAD_MB} MB.",
     ):
         ids = [p["id"] for p in projects]
         names = {p["id"]: p["name"] for p in projects}

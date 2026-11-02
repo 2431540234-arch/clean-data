@@ -6,6 +6,7 @@ Biểu đồ dùng theme="streamlit" để nền/chữ theo theme của ứng d�
 from collections import Counter
 from typing import Any
 
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
@@ -16,6 +17,8 @@ _PRIMARY = "#2563EB"
 _PALETTE = ["#2563EB", "#60A5FA", "#94A3B8", "#16A34A", "#D97706", "#DC2626", "#7C3AED"]
 _ROW_HEIGHT = 34
 _MIN_HEIGHT = 160
+_NUMERIC_SHARE = 0.9  # tỉ lệ giá trị là số tối thiểu để vẽ histogram
+_MAX_CATEGORIES = 20
 _MIN_AXIS_PERCENT = 10  # trục tỉ lệ thiếu tối thiểu 0-10% để thanh nhỏ vẫn đọc được
 
 
@@ -59,11 +62,29 @@ def render_type_chart(column_profiles: list[dict[str, Any]]) -> None:
 
 
 def render_distribution_chart(values: list[Any], column_name: str) -> None:
-    """Biểu đồ phân bố giá trị của một cột (histogram cho số, bar cho category).
+    """Biểu đồ phân bố giá trị của một cột: histogram cho số, thanh cho giá trị rời rạc.
 
-    Gợi ý cách làm: dùng plotly.express.histogram.
-
-    TODO(backend): chưa dùng ở đâu vì backend chưa có endpoint đọc dữ liệu của version
-    (docs/BACKEND_TODO.md, mục 2 #3), nên chưa có `values` để vẽ.
+    Không có dữ liệu thì không hiện gì (không khung trống, không thông báo). Hiện chưa trang nào
+    gọi vì backend chưa có endpoint đọc dữ liệu của version (docs/BACKEND_TODO.md, mục 2 #3).
     """
-    raise NotImplementedError("TODO: render biểu đồ phân bố giá trị của một cột.")
+    values = [v for v in values if v not in (None, "")]
+    if not values:
+        return
+    numbers = pd.to_numeric(pd.Series(values), errors="coerce")
+    if numbers.notna().mean() >= _NUMERIC_SHARE:
+        figure = px.histogram(
+            x=numbers.dropna(),
+            color_discrete_sequence=[_PRIMARY],
+            labels={"x": column_name, "count": "Số dòng"},
+        )
+        figure.update_layout(yaxis_title="Số dòng", bargap=0.05)
+    else:
+        counts = Counter(str(v) for v in values).most_common(_MAX_CATEGORIES)
+        figure = px.bar(
+            x=[name for name, _ in counts],
+            y=[count for _, count in counts],
+            color_discrete_sequence=[_PRIMARY],
+            labels={"x": column_name, "y": "Số dòng"},
+        )
+    figure.update_layout(margin={"l": 0, "r": 0, "t": 10, "b": 0}, height=320)
+    st.plotly_chart(figure, theme="streamlit", use_container_width=True)

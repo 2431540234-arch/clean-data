@@ -165,3 +165,30 @@ def test_page_quality_failure_does_not_block(run_view, monkeypatch):
     at = run_view("overview", role="user", state=CONTEXT)
     assert not at.exception
     assert {m.label: m.value for m in at.metric}["Điểm chất lượng"] == "—"
+
+
+def test_distribution_chart_renders_nothing_without_data():
+    from streamlit.testing.v1 import AppTest
+
+    def app():
+        from components.charts import render_distribution_chart
+
+        render_distribution_chart([], "tuoi")
+        render_distribution_chart([None, ""], "tuoi")
+
+    at = AppTest.from_function(app, default_timeout=30).run()
+    assert not at.exception and len(at.main) == 0
+
+
+def test_distribution_chart_draws_numbers_and_categories():
+    from streamlit.testing.v1 import AppTest
+
+    def app():
+        from components.charts import render_distribution_chart
+
+        render_distribution_chart(["1", "2", "2", "3"], "tuoi")
+        render_distribution_chart(["Hà Nội", "Hà Nội", "Đà Nẵng"], "tinh")
+
+    at = AppTest.from_function(app, default_timeout=30).run()
+    assert not at.exception
+    assert len(at.get("plotly_chart")) == 2  # một histogram, một biểu đồ thanh

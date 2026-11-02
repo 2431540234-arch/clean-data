@@ -127,3 +127,9 @@ def test_home_shows_current_dataset(run_view):
     at = run_view("home", role="user", state={"work_context": ctx})
     assert any("khach_hang.csv" in m.value for m in at.markdown)
     assert any(b.label == "Tiếp tục" for b in at.button)
+
+
+def test_kpi_tiles_are_a_single_list(run_view):
+    """Thẻ KPI sinh từ một danh sách: thêm thẻ mới không đổi bố cục."""
+    at = run_view("dashboard", role="admin")
+    assert [m.label for m in at.metric] == ["Số project", "Tạo gần nhất", "Số chủ sở hữu"]

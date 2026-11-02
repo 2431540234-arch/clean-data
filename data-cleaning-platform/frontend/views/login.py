@@ -15,6 +15,11 @@ from state import set_flash, set_logged_in
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _MIN_PASSWORD_LENGTH = 8  # khớp RegisterRequest.password(min_length=8) của backend
 
+# Đăng nhập thất bại luôn hiện một câu chung, không chuyển tiếp thông báo của backend: tránh lộ
+# email có tồn tại hay tài khoản đang bị khóa hay không (chống dò tài khoản).
+_LOGIN_FAILED_MESSAGE = "Email hoặc mật khẩu không đúng."
+_LOGIN_FAILURE_STATUSES = frozenset({400, 401, 403, 404})
+
 
 def _brand_html() -> str:
     mark = base64.b64encode((ASSETS_DIR / "logo-mark.svg").read_bytes()).decode()
@@ -45,11 +50,29 @@ def _show_problems(problems: list[str]) -> None:
     st.error("\n".join(f"- {p}" for p in problems), icon=":material/error:")
 
 
-def _sign_in(call: Any, args: tuple[str, ...], message: str, key: str) -> None:
-    """Đăng nhập/đăng ký; thành công thì lưu phiên, đặt thông báo và nạp lại để vào Trang chủ."""
+def _sign_in(
+    call: Any,
+    args: tuple[str, ...],
+    message: str,
+    key: str,
+    *,
+    failed_message: str | None = None,
+) -> None:
+    """Đăng nhập/đăng ký; thành công thì lưu phiên, đặt thông báo và nạp lại để vào Trang chủ.
+
+    Args:
+        failed_message: nếu có, thay cho thông báo của backend khi bị từ chối (4xx xác thực).
+    """
     result, error = safe_call("Đang xử lý…", _authenticate, call, *args)
     if error is not None:
-        _show_error(error, key)
+        if (
+            failed_message
+            and not isinstance(error, APIConnectionError)
+            and error.status_code in _LOGIN_FAILURE_STATUSES
+        ):
+            st.error(failed_message, icon=":material/error:")
+        else:
+            _show_error(error, key)
         return
     token, user = result
     set_logged_in(token, user)
@@ -78,7 +101,13 @@ def _login_tab() -> None:
     if problems:
         _show_problems(problems)
         return
-    _sign_in(login, (email, password), "Đăng nhập thành công. Chào mừng bạn quay lại!", "login_err")
+    _sign_in(
+        login,
+        (email, password),
+        "Đăng nhập thành công. Chào mừng bạn quay lại!",
+        "login_err",
+        failed_message=_LOGIN_FAILED_MESSAGE,
+    )
 
 
 def _register_tab() -> None:

@@ -1,0 +1,58 @@
+"""Fixture dùng chung cho test frontend: chạy từng trang bằng AppTest với backend giả (mock)."""
+
+import os
+
+# Phải đặt trước khi api_client được import: toàn bộ test chạy với dữ liệu mẫu.
+os.environ["FRONTEND_MOCK"] = "1"
+
+from pathlib import Path  # noqa: E402
+from typing import Any  # noqa: E402
+
+import pytest  # noqa: E402
+from streamlit.testing.v1 import AppTest  # noqa: E402
+
+FRONTEND_DIR = Path(__file__).resolve().parent.parent
+
+# Khớp dữ liệu seed của mock_api (id 1 = admin, id 2 = user thường).
+_ROLES = {
+    "admin": ("mock-token-1", {"id": 1, "email": "admin@example.com", "role": "admin"}),
+    "user": ("mock-token-2", {"id": 2, "email": "user@example.com", "role": "user"}),
+}
+
+
+@pytest.fixture
+def run_view():
+    """Trả hàm chạy một trang trong views/; role="user"|"admin" để giả lập đã đăng nhập."""
+
+    def _run(
+        name: str,
+        *,
+        role: str | None = None,
+        state: dict[str, Any] | None = None,
+        timeout: float = 30,
+    ) -> AppTest:
+        at = AppTest.from_file(str(FRONTEND_DIR / "views" / f"{name}.py"), default_timeout=timeout)
+        if role:
+            token, user = _ROLES[role]
+            at.session_state["access_token"] = token
+            at.session_state["current_user"] = {**user, "full_name": f"Người dùng {role}"}
+        for key, value in (state or {}).items():
+            at.session_state[key] = value
+        return at.run()
+
+    return _run
+
+
+def error_text(at: AppTest) -> str:
+    """Gộp nội dung mọi st.error đang hiển thị."""
+    return " ".join(str(e.value) for e in at.error)
+
+
+def find_input(at: AppTest, label: str, nth: int = 0):
+    """Ô st.text_input theo nhãn (nth để phân biệt các ô trùng nhãn giữa hai tab)."""
+    return [t for t in at.text_input if t.label == label][nth]
+
+
+def find_button(at: AppTest, text: str):
+    """Nút có nhãn chứa `text`."""
+    return next(b for b in at.button if text in b.label)

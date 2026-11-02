@@ -4,11 +4,11 @@
 
 ## 1. Đăng ký / Đăng nhập
 
-- Hướng dẫn tạo tài khoản, đăng nhập tại trang **0. Đăng nhập**.
+- Hướng dẫn tạo tài khoản, đăng nhập tại trang **Đăng nhập**.
 
 ## 2. Tạo project và upload dữ liệu
 
-- Tạo project ở **Dashboard**, upload file CSV/Excel ở trang **Upload**.
+- Tạo project ở **Dashboard**, upload file CSV/Excel ở trang **Tải lên**.
 
 ## 3. Xem tổng quan dữ liệu
 

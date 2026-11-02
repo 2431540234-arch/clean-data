@@ -99,7 +99,7 @@ def test_admin_scope_toggle_shows_everyone_with_names(run_view):
 
 def test_filter_by_action(run_view):
     at = run_view("audit", role="user")
-    at.multiselect(key="audit_actions").set_value(["dataset.upload"]).run()
+    at.selectbox(key="audit_actions").set_value("dataset.upload").run()
     table = at.dataframe[0].value
     assert list(table["Hành động"]) == ["Tải lên dataset"]
     assert "1/3 bản ghi" in " ".join(c.value for c in at.caption)
@@ -115,12 +115,14 @@ def test_filter_by_date_range_and_no_match(run_view):
 
 def test_detail_shows_before_and_after(run_view):
     at = run_view("audit", role="user")
-    assert not at.json  # chưa chọn bản ghi nào
+    assert not at.code  # chưa chọn bản ghi nào
     audit = at.session_state["_mock_db"]["audit"]
     upload_id = next(log["id"] for log in audit if log["action"] == "dataset.upload")
     at.selectbox(key="audit_detail").set_value(upload_id).run()
-    assert len(at.json) == 2
-    assert at.json[1].value == '{"filename": "khach_hang_ban.csv", "rows": 30}'
+    assert len(at.code) == 2
+    assert (
+        '"filename": "khach_hang_ban.csv"' in at.code[1].value and '"rows": 30' in at.code[1].value
+    )
 
 
 def test_empty_state_for_user_without_activity(run_view):

@@ -4,6 +4,7 @@ from typing import Any
 
 import streamlit as st
 
+from components.formatting import to_json_text
 from components.labels import SOURCE_LABELS, STATUS_LABELS, describe_step
 from components.ui import badge_html
 
@@ -45,7 +46,7 @@ def render_suggestion_card(suggestion: dict[str, Any]) -> str | None:
 
         st.write(suggestion["explanation"])
         with st.expander("Chi tiết rule (JSON)"):
-            st.json(suggestion["proposed_rule"])
+            st.code(to_json_text(suggestion["proposed_rule"]), language=None)
 
         accept_col, reject_col, _ = st.columns([2, 2, 4])
         if accept_col.button(

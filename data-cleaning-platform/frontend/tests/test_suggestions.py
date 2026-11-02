@@ -131,7 +131,7 @@ def test_generate_shows_cards_and_counts(run_view):
         "Đã từ chối": "0",
     }
     assert len([b for b in at.button if b.key and b.key.startswith("accept_")]) == 8
-    assert len(at.expander) == 8 and len(at.json) == 8  # rule JSON trong từng thẻ
+    assert len(at.expander) == 8 and len(at.code) == 8  # rule JSON trong từng thẻ
     html = " ".join(m.value for m in at.markdown)
     assert "Độ tin cậy thấp" in html and "AI đề xuất" in html
     assert any("Chấp nhận ít nhất một gợi ý" in i.value for i in at.info)

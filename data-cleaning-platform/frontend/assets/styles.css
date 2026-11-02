@@ -11,6 +11,7 @@
     --c-primary-text: #1d4ed8;
     --c-primary-tint: #eff6ff;
     --c-text-muted: #475569;
+    --c-placeholder: #64748b; /* 4.8:1 trên nền trắng, 4.6:1 trên #f8fafc */
     --c-border: #e2e8f0;
     --c-border-strong: #cbd5e1;
 
@@ -97,6 +98,13 @@
 
 .stAlert {
     border-radius: var(--radius-sm);
+}
+
+/* Placeholder đạt tương phản AA (selector phần tử, không phụ thuộc class nội bộ của Streamlit) */
+.stApp input::placeholder,
+.stApp textarea::placeholder {
+    color: var(--c-placeholder);
+    opacity: 1;
 }
 
 /* Vòng focus rõ ràng khi điều hướng bằng bàn phím */

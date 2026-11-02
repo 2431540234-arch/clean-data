@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from api_client import admin_list_users, audit_all, audit_me
-from components.formatting import format_datetime, format_number, to_vn_datetime
+from components.formatting import format_datetime, format_number, to_json_text, to_vn_datetime
 from components.labels import action_label, entity_label
 from components.navigation import get_page
 from components.ui import (
@@ -71,9 +71,9 @@ def _detail(logs: list[dict[str, Any]]) -> None:
         return
     before, after = st.columns(2)
     before.markdown("**Trước**")
-    before.json(log["old_value"] or {})
+    before.code(to_json_text(log["old_value"] or {}), language=None)
     after.markdown("**Sau**")
-    after.json(log["new_value"] or {})
+    after.code(to_json_text(log["new_value"] or {}), language=None)
 
 
 page_shell("Nhật ký hoạt động", "Các hành động đã thực hiện trên hệ thống")
@@ -103,11 +103,11 @@ if not logs:
 
 actions = sorted({log["action"] for log in logs})
 filter_actions, filter_dates = st.columns([3, 2])
-selected_actions = filter_actions.multiselect(
+_ALL = ""  # mục "Tất cả hành động" (dùng selectbox vì placeholder của multiselect không đạt AA)
+selected_action = filter_actions.selectbox(
     "Hành động",
-    actions,
-    format_func=action_label,
-    placeholder="Tất cả hành động",
+    [_ALL, *actions],
+    format_func=lambda a: "Tất cả hành động" if a == _ALL else action_label(a),
     key="audit_actions",
 )
 date_range = filter_dates.date_input(
@@ -117,7 +117,7 @@ date_range = filter_dates.date_input(
 shown = [
     log
     for log in logs
-    if (not selected_actions or log["action"] in selected_actions) and _within(log, date_range)
+    if (selected_action == _ALL or log["action"] == selected_action) and _within(log, date_range)
 ]
 if not shown:
     st.info("Không có bản ghi nào khớp bộ lọc.", icon=":material/filter_alt_off:")

@@ -1,5 +1,6 @@
 """Định dạng hiển thị kiểu Việt Nam: ngày giờ (UTC+7), số, phần trăm, dung lượng."""
 
+import json
 from datetime import UTC, datetime, timedelta, timezone
 
 VN_TZ = timezone(timedelta(hours=7))
@@ -63,3 +64,8 @@ def to_vn_datetime(value: str | None) -> datetime | None:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=UTC)
     return parsed.astimezone(VN_TZ)
+
+
+def to_json_text(value: object) -> str:
+    """JSON thụt đầu dòng, giữ nguyên chữ có dấu, để hiển thị dạng khối mã."""
+    return json.dumps(value, ensure_ascii=False, indent=2)

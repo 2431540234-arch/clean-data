@@ -102,3 +102,9 @@ Một số ảnh của các trang làm trước (Trang chủ ở mobile, Tải l
 | `thong-ke-he-thong__tong-quan` | 6 chỉ số, 2 biểu đồ vành khuyên, gauge điểm chất lượng TB |
 | `thong-ke-he-thong__mobile` | Bố cục 375px |
 | `thong-ke-he-thong__loi-may-chu` | Lỗi máy chủ thân thiện |
+
+## Responsive (`responsive/`)
+Ảnh 12 trang ở 768px (`<trang>__768.png`) và 375px (`<trang>__375.png`), chụp trong phiên admin
+sau khi đã chọn dataset (Mapping đã có bảng gợi ý, Gợi ý làm sạch đã sinh gợi ý, Xuất dữ liệu đã tạo
+tệp CSV). Kết quả quét tự động: không trang nào tràn ngang ở 1280/768/375px và không có chữ hay
+placeholder nào dưới tương phản 4,5:1.

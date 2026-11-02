@@ -119,7 +119,7 @@ def test_upload_page_initial_state(run_view):
     assert at.title[0].value == "Tải lên"
     assert [s.label for s in at.selectbox] == ["Project"]
     assert any(b.label == "Tải lên" and b.disabled for b in at.button)  # chưa chọn file
-    assert any("Tối đa 50 MB" in c.value for c in at.caption)
+    assert any("tối đa 50 MB" in c.value for c in at.caption)
 
 
 def test_upload_page_without_projects_guides_user(run_view):

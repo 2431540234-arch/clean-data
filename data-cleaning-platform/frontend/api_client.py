@@ -165,3 +165,23 @@ def register(email: str, password: str, full_name: str) -> dict[str, Any]:
 def get_me(token: str) -> dict[str, Any]:
     """Lấy thông tin user hiện tại từ token."""
     return request("GET", "/api/v1/auth/me", token=token)
+
+
+def list_projects(token: str) -> list[dict[str, Any]]:
+    """Danh sách project: admin thấy tất cả, user thường chỉ thấy của mình (ProjectOut)."""
+    return request("GET", "/api/v1/projects", token=token)
+
+
+def create_project(token: str, name: str) -> dict[str, Any]:
+    """Tạo project mới thuộc về user đang đăng nhập."""
+    return request("POST", "/api/v1/projects", token=token, json={"name": name})
+
+
+def update_project(token: str, project_id: int, name: str) -> dict[str, Any]:
+    """Đổi tên project."""
+    return request("PUT", f"/api/v1/projects/{project_id}", token=token, json={"name": name})
+
+
+def delete_project(token: str, project_id: int) -> dict[str, Any]:
+    """Xóa project (chỉ owner hoặc admin)."""
+    return request("DELETE", f"/api/v1/projects/{project_id}", token=token)

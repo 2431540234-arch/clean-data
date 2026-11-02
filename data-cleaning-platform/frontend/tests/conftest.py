@@ -56,3 +56,37 @@ def find_input(at: AppTest, label: str, nth: int = 0):
 def find_button(at: AppTest, text: str):
     """Nút có nhãn chứa `text`."""
     return next(b for b in at.button if text in b.label)
+
+
+@pytest.fixture
+def call_api():
+    """Gọi một hàm của api_client (đang trỏ vào mock) trong ngữ cảnh phiên Streamlit.
+
+    Trả (kết quả, lỗi) và trạng thái mock sau khi gọi, để kiểm tra tác dụng lên dữ liệu.
+    """
+
+    def script() -> None:
+        import streamlit as st
+
+        import api_client
+
+        name, args = st.session_state["_call"]
+        func = getattr(api_client, name)
+        token = st.session_state["access_token"]
+        try:
+            st.session_state["_result"] = (func(token, *args), None)
+        except api_client.APIError as exc:
+            st.session_state["_result"] = (None, exc)
+
+    def _call(role: str, name: str, *args: Any, state: dict[str, Any] | None = None):
+        at = AppTest.from_function(script, default_timeout=30)
+        at.session_state["access_token"] = _ROLES[role][0]
+        at.session_state["_call"] = (name, args)
+        for key, value in (state or {}).items():
+            at.session_state[key] = value
+        at.run()
+        assert not at.exception, at.exception
+        result, error = at.session_state["_result"]
+        return result, error, at.session_state["_mock_db"]
+
+    return _call

@@ -58,7 +58,27 @@ def _seed() -> dict[str, Any]:
             "created_at": created,
         },
     ]
-    return {"users": users, "next_user_id": 3}
+    projects = [
+        {
+            "id": 1,
+            "name": "Khách hàng 2026",
+            "owner_id": 2,
+            "created_at": "2026-09-12T03:20:00+00:00",
+        },
+        {
+            "id": 2,
+            "name": "Đơn hàng quý 3",
+            "owner_id": 2,
+            "created_at": "2026-10-05T07:45:00+00:00",
+        },
+        {
+            "id": 3,
+            "name": "Dữ liệu nội bộ",
+            "owner_id": 1,
+            "created_at": "2026-09-20T01:10:00+00:00",
+        },
+    ]
+    return {"users": users, "next_user_id": 3, "projects": projects, "next_project_id": 4}
 
 
 def db() -> dict[str, Any]:
@@ -205,3 +225,73 @@ def _login(call: Call) -> dict[str, str]:
 def _me(call: Call) -> dict[str, Any]:
     assert call.user is not None
     return public_user(call.user)
+
+
+# ---------------------------------------------------------------------------
+# Projects
+# ---------------------------------------------------------------------------
+
+
+def _get_project(project_id: int, user: dict[str, Any]) -> dict[str, Any]:
+    """Lấy project và kiểm tra quyền (giống ensure_can_access_project)."""
+    project = next((p for p in db()["projects"] if p["id"] == project_id), None)
+    if project is None:
+        raise APIError(404, "Không tìm thấy tài nguyên.")
+    if user["role"] != "admin" and project["owner_id"] != user["id"]:
+        raise APIError(403, "Bạn không có quyền truy cập tài nguyên này.")
+    return project
+
+
+def _project_name(body: Any) -> str:
+    name = str((body or {}).get("name", "")).strip()
+    if not name:
+        raise validation_error("name", "Tên project không được để trống.")
+    if len(name) > 255:
+        raise validation_error("name", "Tên project tối đa 255 ký tự.")
+    return name
+
+
+@route("GET", "/projects")
+def _list_projects(call: Call) -> list[dict[str, Any]]:
+    assert call.user is not None
+    projects = db()["projects"]
+    if call.user["role"] == "admin":
+        return list(projects)
+    return [p for p in projects if p["owner_id"] == call.user["id"]]
+
+
+@route("POST", "/projects")
+def _create_project(call: Call) -> dict[str, Any]:
+    assert call.user is not None
+    state = db()
+    project = {
+        "id": state["next_project_id"],
+        "name": _project_name(call.json),
+        "owner_id": call.user["id"],
+        "created_at": _now(),
+    }
+    state["next_project_id"] += 1
+    state["projects"].append(project)
+    return project
+
+
+@route("GET", r"/projects/(\d+)")
+def _read_project(call: Call) -> dict[str, Any]:
+    assert call.user is not None
+    return _get_project(int(call.args[0]), call.user)
+
+
+@route("PUT", r"/projects/(\d+)")
+def _update_project(call: Call) -> dict[str, Any]:
+    assert call.user is not None
+    project = _get_project(int(call.args[0]), call.user)
+    project["name"] = _project_name(call.json)
+    return project
+
+
+@route("DELETE", r"/projects/(\d+)")
+def _delete_project(call: Call) -> dict[str, str]:
+    assert call.user is not None
+    project = _get_project(int(call.args[0]), call.user)
+    db()["projects"].remove(project)
+    return {"message": "Đã xóa project."}

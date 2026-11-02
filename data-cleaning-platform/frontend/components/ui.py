@@ -125,22 +125,25 @@ def empty_state(
     *,
     cta_label: str | None = None,
     cta_page: str | None = None,
-) -> None:
+) -> bool:
     """Trạng thái rỗng: biểu tượng, tiêu đề, mô tả và (tùy chọn) nút dẫn tới bước tiếp theo.
 
     Args:
         icon: tên Material icon (không kèm dấu hai chấm), ví dụ "inbox".
-        cta_page: key trang (components.navigation) mà nút dẫn tới.
+        cta_page: key trang (components.navigation) mà nút dẫn tới. Bỏ trống thì nút là một
+            hành động của trang (ví dụ mở hộp thoại tạo mới) và hàm trả True khi được bấm.
     """
     with st.container(border=True):
         st.markdown(f"**:material/{icon}: {title}**")
         st.caption(description)
-        if (
-            cta_label
-            and cta_page
-            and st.button(cta_label, key=f"cta_{cta_page}_{title}", type="primary")
-        ):
-            st.switch_page(get_page(cta_page).file)
+        if cta_label:
+            clicked = st.button(
+                cta_label, key=f"cta_{cta_page or 'action'}_{title}", type="primary"
+            )
+            if clicked and cta_page:
+                st.switch_page(get_page(cta_page).file)
+            return clicked and not cta_page
+    return False
 
 
 # ---------------------------------------------------------------------------

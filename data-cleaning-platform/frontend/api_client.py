@@ -237,6 +237,29 @@ def get_quality(token: str, version_id: int) -> dict[str, Any]:
     return request("GET", f"/api/v1/quality/{version_id}", token=token, timeout=60.0)
 
 
+def list_project_datasets(token: str, project_id: int) -> list[dict[str, Any]]:
+    """Dataset của một project, mới nhất trước (list[DatasetOut])."""
+    return request("GET", f"/api/v1/projects/{project_id}/datasets", token=token)
+
+
+def get_issues(token: str, version_id: int) -> list[dict[str, Any]]:
+    """Lỗi dữ liệu đã phát hiện của một phiên bản (list[DataIssueOut]); 404 nếu chưa profiling."""
+    return request("GET", f"/api/v1/profiling/{version_id}/issues", token=token)
+
+
+def get_rows(
+    token: str, dataset_id: int, version_id: int, offset: int = 0, limit: int = 100
+) -> dict[str, Any]:
+    """Một trang dòng dữ liệu của phiên bản (DatasetRowsPage: total, columns, rows)."""
+    return request(
+        "GET",
+        f"/api/v1/datasets/{dataset_id}/versions/{version_id}/rows",
+        token=token,
+        params={"offset": offset, "limit": limit},
+        timeout=60.0,
+    )
+
+
 def get_project(token: str, project_id: int) -> dict[str, Any]:
     """Thông tin một project (ProjectOut)."""
     return request("GET", f"/api/v1/projects/{project_id}", token=token)
@@ -346,7 +369,10 @@ def admin_list_users(token: str) -> list[dict[str, Any]]:
 
 
 def change_password(token: str, old_password: str, new_password: str) -> dict[str, Any]:
-    """Đổi mật khẩu của chính user đang đăng nhập."""
+    """Đổi mật khẩu của chính user đang đăng nhập.
+
+    Mọi token cũ bị vô hiệu; phản hồi có `access_token` mới cho phiên hiện tại.
+    """
     return request(
         "POST",
         "/api/v1/auth/change-password",

@@ -5,11 +5,16 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-from api_client import get_quality
-from components.charts import render_missing_ratio_chart, render_type_chart
+from api_client import get_issues, get_quality, get_rows
+from components.charts import (
+    render_distribution_chart,
+    render_issue_chart,
+    render_missing_ratio_chart,
+    render_type_chart,
+)
 from components.dataset_context import dataset_context_bar, load_profile
 from components.formatting import format_number, format_percent
-from components.labels import type_label
+from components.labels import SEVERITY_KIND, issue_type_label, severity_label, type_label
 from components.navigation import get_page
 from components.ui import (
     badge_html,
@@ -25,6 +30,7 @@ from state import get_token
 
 _EMPTY = "—"
 _HIGH_MISSING_RATIO = 0.1  # từ ngưỡng này cột được ghi chú "Thiếu nhiều"
+_DISTRIBUTION_ROWS = 1000  # số dòng đầu dùng để vẽ phân bố giá trị của một cột
 
 
 def _column_table(columns: list[dict[str, Any]]) -> pd.DataFrame:
@@ -68,6 +74,66 @@ def _column_detail(columns: list[dict[str, Any]]) -> None:
         st.markdown(f"**Giá trị mẫu:** {samples}", unsafe_allow_html=True)
 
 
+def _issue_table(issues: list[dict[str, Any]]) -> None:
+    """Danh sách lỗi đã phát hiện: mức độ, cột, loại, số dòng, ví dụ và mô tả."""
+    data_table(
+        pd.DataFrame(
+            {
+                "Mức độ": severity_label(i["severity"]),
+                "Cột": i["column_name"] or "(cả bảng)",
+                "Loại lỗi": issue_type_label(i["issue_type"]),
+                "Số dòng": i["affected_count"],
+                "Ví dụ": ", ".join(repr(x) for x in i["examples"]),
+                "Mô tả": i["message"],
+            }
+            for i in issues
+        ),
+        column_config={
+            "Số dòng": st.column_config.NumberColumn("Số dòng", format="%d"),
+            "Mô tả": st.column_config.TextColumn("Mô tả", width="large"),
+        },
+        height=min(560, 56 + 36 * len(issues)),
+    )
+
+
+def _issues_section(version_id: int) -> list[dict[str, Any]]:
+    """Tab "Lỗi đã phát hiện"; trả danh sách lỗi (rỗng nếu chưa lấy được) để vẽ biểu đồ."""
+    issues, error = safe_call("Đang tải danh sách lỗi…", get_issues, get_token(), version_id)
+    if error is not None:
+        st.warning(f"Chưa lấy được danh sách lỗi: {error.detail}", icon=":material/warning:")
+        return []
+    if not issues:
+        st.success("Không phát hiện lỗi nào trong dữ liệu.", icon=":material/check_circle:")
+        return []
+    summary = " ".join(
+        badge_html(
+            f"{severity_label(level)}: {sum(1 for i in issues if i['severity'] == level)}",
+            SEVERITY_KIND[level],
+        )
+        for level in ("high", "medium", "low")
+        if any(i["severity"] == level for i in issues)
+    )
+    st.markdown(f"**{len(issues)} nhóm lỗi** · {summary}", unsafe_allow_html=True)
+    _issue_table(issues)
+    return issues
+
+
+def _distribution(dataset_id: int, version_id: int, columns: list[dict[str, Any]]) -> None:
+    """Phân bố giá trị của một cột, vẽ từ các dòng đầu của phiên bản (GET .../rows)."""
+    names = [c["column_name"] for c in columns]
+    chosen = st.selectbox("Phân bố giá trị của cột", names, key="overview_distribution_column")
+    page, error = safe_call(
+        "Đang tải dữ liệu…", get_rows, get_token(), dataset_id, version_id, 0, _DISTRIBUTION_ROWS
+    )
+    if error is not None:
+        st.warning(f"Chưa lấy được dữ liệu để vẽ: {error.detail}", icon=":material/warning:")
+        return
+    render_distribution_chart([r["values"].get(chosen) for r in page["rows"]], chosen)
+    if page["total"] > len(page["rows"]):
+        shown, total = format_number(len(page["rows"])), format_number(page["total"])
+        st.caption(f"Vẽ từ {shown} dòng đầu trong {total} dòng.")
+
+
 page_shell("Tổng quan dữ liệu", "Thống kê từng cột và điểm chất lượng của phiên bản hiện tại")
 stepper("overview")
 active = dataset_context_bar()
@@ -109,7 +175,7 @@ for cell, (label, value) in zip(
     with cell:
         metric_card(label, value)
 
-tab_stats, tab_charts = st.tabs(["Thống kê cột", "Biểu đồ"])
+tab_stats, tab_issues, tab_charts = st.tabs(["Thống kê cột", "Lỗi đã phát hiện", "Biểu đồ"])
 with tab_stats:
     data_table(
         _column_table(columns),
@@ -125,6 +191,9 @@ with tab_stats:
     )
     _column_detail(columns)
 
+with tab_issues:
+    issues = _issues_section(version["id"])
+
 with tab_charts:
     left, right = st.columns([3, 2])
     with left:
@@ -133,6 +202,10 @@ with tab_charts:
     with right:
         st.markdown("**Cơ cấu kiểu dữ liệu**")
         render_type_chart(columns)
+    if issues:
+        st.markdown("**Lỗi theo mức độ nghiêm trọng**")
+        render_issue_chart(issues)
+    _distribution(active.dataset["id"], version["id"], columns)
 
 if st.button(
     "Tiếp tục: Mapping cột",

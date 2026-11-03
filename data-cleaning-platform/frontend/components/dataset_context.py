@@ -15,6 +15,8 @@ from api_client import (
     get_profiling,
     get_project,
     list_dataset_versions,
+    list_project_datasets,
+    list_projects,
     run_profiling,
 )
 from components.navigation import get_page
@@ -31,22 +33,47 @@ class ActiveDataset:
 
 
 def open_dataset_form(key: str) -> None:
-    """Form mở lại một dataset đã tải lên bằng ID.
-
-    TODO(backend): thay bằng danh sách dataset của project khi backend có endpoint liệt kê
-    dataset theo project (docs/BACKEND_TODO.md, mục 2 #1). Hiện chỉ có GET /datasets/{id}.
-    """
-    dataset_id = st.number_input(
-        "Dataset ID", min_value=1, step=1, value=None, format="%d", placeholder="Nhập ID", key=key
+    """Chọn lại một dataset đã tải lên: chọn project rồi chọn dataset trong danh sách."""
+    token = get_token()
+    projects, error = safe_call("Đang tải project…", list_projects, token)
+    if error is not None:
+        st.error(error.detail, icon=":material/error:")
+        return
+    if not projects:
+        st.info("Chưa có project nào. Hãy tạo project ở Dashboard rồi tải dữ liệu lên.")
+        return
+    current_project = get_context().get("project_id")
+    by_id = {p["id"]: p for p in projects}
+    project_id = st.selectbox(
+        "Project",
+        list(by_id),
+        index=list(by_id).index(current_project) if current_project in by_id else 0,
+        format_func=lambda pid: by_id[pid]["name"],
+        key=f"{key}_project",
     )
-    if st.button("Mở dataset", key=f"{key}_open", disabled=dataset_id is None):
-        dataset, error = safe_call("Đang mở dataset…", get_dataset, get_token(), int(dataset_id))
-        if error is not None:
-            st.error(error.detail, icon=":material/error:")
-            return
+    project = by_id[project_id]
+    datasets, error = safe_call(
+        "Đang tải danh sách dataset…", list_project_datasets, token, project["id"]
+    )
+    if error is not None:
+        st.error(error.detail, icon=":material/error:")
+        return
+    if not datasets:
+        st.info("Project này chưa có dataset nào. Hãy tải một file lên.")
+        return
+    by_dataset = {d["id"]: d for d in datasets}
+    dataset = by_dataset[
+        st.selectbox(
+            "Dataset",
+            list(by_dataset),
+            format_func=lambda did: f"{by_dataset[did]['original_filename']} (#{did})",
+            key=f"{key}_dataset_{project['id']}",
+        )
+    ]
+    if st.button("Mở dataset", key=f"{key}_open", type="primary"):
         set_context(
-            project_id=dataset["project_id"],
-            project_name=None,
+            project_id=project["id"],
+            project_name=project["name"],
             dataset_id=dataset["id"],
             dataset_name=dataset["original_filename"],
             version_id=dataset["current_version_id"],

@@ -69,6 +69,13 @@ ACTION_LABELS = {
     "version.redo": "Làm lại phiên bản",
     "version.restore": "Khôi phục phiên bản",
     "auth.change_password": "Đổi mật khẩu",
+    "auth.login": "Đăng nhập",
+    "auth.login_failed": "Đăng nhập thất bại",
+    "auth.register": "Đăng ký tài khoản",
+    "suggestion.generate": "Sinh gợi ý làm sạch",
+    "dataset.select_sheet": "Chọn lại sheet Excel",
+    "rule.create": "Lưu rule mẫu",
+    "rule.delete": "Xóa rule mẫu",
     "user.lock": "Khóa tài khoản",
     "user.unlock": "Mở khóa tài khoản",
     "user.change_role": "Đổi quyền",
@@ -100,3 +107,27 @@ ROLE_LABELS = {"admin": "Quản trị viên", "user": "Người dùng"}
 def role_label(role: str) -> str:
     """Nhãn tiếng Việt của quyền; quyền lạ giữ nguyên."""
     return ROLE_LABELS.get(role, role)
+
+
+# Khớp DataIssueOut.severity / issue_type của backend.
+SEVERITY_LABELS = {"high": "Cao", "medium": "Trung bình", "low": "Thấp"}
+SEVERITY_KIND = {"high": "error", "medium": "warning", "low": "neutral"}
+SEVERITY_COLORS = {"high": "#DC2626", "medium": "#D97706", "low": "#94A3B8"}
+ISSUE_TYPE_LABELS = {
+    "duplicate": "Trùng lặp",
+    "missing": "Thiếu dữ liệu",
+    "outlier": "Giá trị bất thường",
+    "invalid_format": "Sai định dạng",
+    "type_mismatch": "Sai kiểu dữ liệu",
+    "inconsistent": "Không nhất quán",
+}
+
+
+def severity_label(severity: str) -> str:
+    """Nhãn tiếng Việt của mức độ nghiêm trọng; mức lạ giữ nguyên."""
+    return SEVERITY_LABELS.get(severity, severity)
+
+
+def issue_type_label(issue_type: str) -> str:
+    """Nhãn tiếng Việt của loại lỗi; loại lạ giữ nguyên."""
+    return ISSUE_TYPE_LABELS.get(issue_type, issue_type)

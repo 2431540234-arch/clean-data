@@ -5,18 +5,24 @@ from typing import Any
 import streamlit as st
 
 from components.formatting import to_json_text
-from components.labels import SOURCE_LABELS, STATUS_LABELS, describe_step
+from components.labels import (
+    SEVERITY_KIND,
+    SOURCE_LABELS,
+    STATUS_LABELS,
+    describe_step,
+    severity_label,
+)
 from components.ui import badge_html
 
 _LOW_CONFIDENCE = 0.7  # dưới ngưỡng này thẻ gắn nhãn "Độ tin cậy thấp"
 _STATUS_KIND = {"pending": "neutral", "accepted": "success", "rejected": "error"}
 
 
-def render_suggestion_card(suggestion: dict[str, Any]) -> str | None:
+def render_suggestion_card(suggestion: dict[str, Any], severity: str | None = None) -> str | None:
     """Hiển thị một gợi ý (explanation, confidence, proposed_rule) kèm 2 nút Chấp nhận/Từ chối.
 
-    Mức độ nghiêm trọng của lỗi (gắn qua issue_id) chưa có endpoint để tra (docs/BACKEND_TODO.md,
-    mục 2 #2) nên thẻ chưa tô màu theo mức độ.
+    severity: mức độ nghiêm trọng của lỗi gắn với gợi ý (tra từ GET /profiling/{id}/issues theo
+    issue_id); có thì thẻ có viền trái màu theo mức độ và nhãn "Mức độ", không có thì thẻ như cũ.
 
     Returns:
         "accepted" | "rejected" | None tùy nút nào được bấm.
@@ -28,7 +34,8 @@ def render_suggestion_card(suggestion: dict[str, Any]) -> str | None:
     title = describe_step(steps[0]) if len(steps) == 1 else f"{len(steps)} bước làm sạch"
 
     decision = None
-    with st.container(border=True):
+    key = f"sev-{severity}-{suggestion_id}" if severity else f"sug-{suggestion_id}"
+    with st.container(border=True, key=key):
         head, state = st.columns([5, 2], vertical_alignment="center")
         head.markdown(f"**{title}**")
         state.markdown(
@@ -38,6 +45,10 @@ def render_suggestion_card(suggestion: dict[str, Any]) -> str | None:
         badges = [
             badge_html(SOURCE_LABELS.get(suggestion["source"], suggestion["source"]), "primary")
         ]
+        if severity:
+            badges.append(
+                badge_html(f"Mức độ {severity_label(severity).lower()}", SEVERITY_KIND[severity])
+            )
         if confidence is not None:
             badges.append(badge_html(f"Độ tin cậy {round(confidence * 100)}%"))
             if confidence < _LOW_CONFIDENCE:

@@ -66,8 +66,13 @@ def _password_form() -> None:
             st.error("\n".join(f"- {p}" for p in problems), icon=":material/error:")
             return
 
-        _, error = safe_call("Đang đổi mật khẩu…", change_password, get_token(), old, new)
+        result, error = safe_call("Đang đổi mật khẩu…", change_password, get_token(), old, new)
         if error is None:
+            # Backend vô hiệu mọi token cũ khi đổi mật khẩu và trả token mới: nhận lại để người
+            # dùng ở lại trang (không bị đăng xuất giữa chừng).
+            new_token = (result or {}).get("access_token")
+            if new_token:
+                set_logged_in(new_token, get_current_user() or {})
             set_flash("Đã đổi mật khẩu.")
             st.rerun()
         elif isinstance(error, APIConnectionError) or error.status_code >= 500:

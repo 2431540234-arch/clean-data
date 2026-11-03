@@ -120,7 +120,7 @@ def test_page_runs_profiling_automatically_and_shows_stats(run_view):
     metrics = {m.label: m.value for m in at.metric}
     assert metrics["Số dòng"] == "30" and metrics["Số cột"] == "6"
     assert metrics["Điểm chất lượng"].endswith("/ 100")
-    assert [t.label for t in at.tabs] == ["Thống kê cột", "Biểu đồ"]
+    assert [t.label for t in at.tabs] == ["Thống kê cột", "Lỗi đã phát hiện", "Biểu đồ"]
     table = at.dataframe[0].value
     assert list(table["Cột"]) == [
         "ho_ten", "email", "so_dien_thoai", "ngay_sinh", "tuoi", "tinh_thanh",

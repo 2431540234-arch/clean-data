@@ -11,6 +11,7 @@ Tài khoản mẫu:
 """
 
 import io
+import json
 import os
 import random
 import re
@@ -226,6 +227,7 @@ def _seed() -> dict[str, Any]:
         "raw_files": {},  # dataset_id -> (bytes, loại file), để chọn lại sheet
         "profiles": {},  # version_id -> list[SchemaProfileOut]
         "quality": {},  # version_id -> QualityReportOut
+        "issues": {},  # version_id -> list[DataIssueOut]
         "suggestions": [],  # SuggestionOut
         "ai_calls": 0,  # số lần sinh gợi ý (thống kê hệ thống)
         "audit": _seed_audit(),  # AuditLogOut
@@ -295,7 +297,11 @@ def _token_user(token: str | None) -> dict[str, Any]:
         raise APIError(401, "Thiếu token xác thực.")
     if not token.startswith("mock-token-"):
         raise APIError(401, "Token không hợp lệ hoặc đã hết hạn.")
-    user_id = int(token.removeprefix("mock-token-"))
+    # "mock-token-<id>" hoặc "mock-token-<id>.<n>" (token cấp lại sau khi đổi mật khẩu)
+    try:
+        user_id = int(token.removeprefix("mock-token-").split(".")[0])
+    except ValueError:
+        raise APIError(401, "Token không hợp lệ hoặc đã hết hạn.") from None
     user = next((u for u in db()["users"] if u["id"] == user_id), None)
     if user is None:
         raise APIError(401, "Người dùng không tồn tại.")
@@ -427,9 +433,34 @@ def _project_name(body: Any) -> str:
 def _list_projects(call: Call) -> list[dict[str, Any]]:
     assert call.user is not None
     projects = db()["projects"]
-    if call.user["role"] == "admin":
-        return list(projects)
-    return [p for p in projects if p["owner_id"] == call.user["id"]]
+    if call.user["role"] != "admin":
+        projects = [p for p in projects if p["owner_id"] == call.user["id"]]
+    return [_project_summary(p) for p in projects]
+
+
+def _project_summary(project: dict[str, Any]) -> dict[str, Any]:
+    """ProjectOut kèm dataset_count và average_quality_score (giống GET /projects của backend):
+    điểm trung bình chỉ tính trên phiên bản hiện tại đã có báo cáo, thiếu thì None."""
+    state = db()
+    datasets = [d for d in state["datasets"] if d["project_id"] == project["id"]]
+    scores = [
+        state["quality"][d["current_version_id"]]["overall_score"]
+        for d in datasets
+        if d["current_version_id"] in state["quality"]
+    ]
+    return {
+        **project,
+        "dataset_count": len(datasets),
+        "average_quality_score": round(sum(scores) / len(scores), 1) if scores else None,
+    }
+
+
+@route("GET", r"/projects/(\d+)/datasets")
+def _list_project_datasets(call: Call) -> list[dict[str, Any]]:
+    assert call.user is not None
+    project = _get_project(int(call.args[0]), call.user)
+    found = [d for d in db()["datasets"] if d["project_id"] == project["id"]]
+    return sorted(found, key=lambda d: d["id"], reverse=True)
 
 
 @route("POST", "/projects")
@@ -559,6 +590,44 @@ def _read_dataset(call: Call) -> dict[str, Any]:
     return _get_dataset(int(call.args[0]), call.user)
 
 
+@route("GET", r"/datasets/(\d+)/versions/(\d+)/rows")
+def _list_rows(call: Call) -> dict[str, Any]:
+    assert call.user is not None
+    dataset = _get_dataset(int(call.args[0]), call.user)
+    version = next(
+        (
+            v
+            for v in db()["versions"]
+            if v["id"] == int(call.args[1]) and v["dataset_id"] == dataset["id"]
+        ),
+        None,
+    )
+    if version is None:
+        raise APIError(404, "Không tìm thấy tài nguyên.")
+    try:
+        offset = max(0, int(call.params.get("offset", 0)))
+        limit = max(1, min(int(call.params.get("limit", 100)), 1000))
+    except (TypeError, ValueError):
+        raise validation_error("offset", "offset và limit phải là số nguyên.") from None
+    frame = db()["frames"][version["id"]]
+    page = frame.iloc[offset : offset + limit]
+    rows = [
+        {
+            "row_index": offset + i,
+            "values": {str(k): (None if str(v) == "" else str(v)) for k, v in record.items()},
+        }
+        for i, record in enumerate(page.to_dict("records"))
+    ]
+    return {
+        "version_id": version["id"],
+        "total": len(frame),
+        "offset": offset,
+        "limit": limit,
+        "columns": [str(c) for c in frame.columns],
+        "rows": rows,
+    }
+
+
 @route("GET", r"/datasets/(\d+)/versions")
 def _list_dataset_versions(call: Call) -> list[dict[str, Any]]:
     assert call.user is not None
@@ -613,12 +682,81 @@ def _next_id(count: int = 1) -> int:
 def _run_profiling(call: Call) -> dict[str, Any]:
     assert call.user is not None
     version = _get_version(int(call.args[0]), call.user)
+    return {"version_id": version["id"], "columns": _profile_version(version)}
+
+
+def _profile_version(version: dict[str, Any]) -> list[dict[str, Any]]:
+    """Chạy profiling + phát hiện lỗi cho phiên bản (backend cũng tự làm khi sinh gợi ý)."""
     frame = db()["frames"][version["id"]]
     columns = mock_profiling.profile_frame(
         frame, version["id"], _next_id(len(frame.columns)), _now()
     )
     db()["profiles"][version["id"]] = columns
-    return {"version_id": version["id"], "columns": columns}
+    _build_issues(version, frame)
+    return columns
+
+
+# op của gợi ý -> (loại lỗi, mức độ) trong DataIssueOut; chỉ để mock có danh sách lỗi hợp lý.
+_ISSUE_OF_OP = {
+    "drop_duplicates": ("duplicate", "medium"),
+    "flag_outliers": ("outlier", "high"),
+    "fill_missing": ("missing", "low"),
+    "cast_type": ("type_mismatch", "medium"),
+    "standardize_email": ("invalid_format", "medium"),
+}
+
+
+def _build_issues(version: dict[str, Any], frame: Any) -> list[dict[str, Any]]:
+    """Lỗi của phiên bản, suy ra từ các gợi ý mock (mỗi gợi ý ứng với một lỗi)."""
+    state = db()
+    if version["id"] in state["issues"]:
+        return state["issues"][version["id"]]
+    issues = []
+    for draft in mock_suggest.generate(frame):
+        step = draft["proposed_rule"]["steps"][0]
+        column = step.get("column")
+        try:
+            _, _, affected = mock_rules.apply_steps(frame, [step])
+        except mock_rules.RuleError:
+            affected = set()
+        labels = sorted(affected)
+        examples = (
+            list(dict.fromkeys(str(frame.at[i, column]) for i in labels if column in frame))[:3]
+            if column
+            else []
+        )
+        issue_type, severity = _ISSUE_OF_OP.get(step["op"], ("inconsistent", "medium"))
+        issues.append(
+            {
+                "id": _next_id(),
+                "version_id": version["id"],
+                "column_name": column,
+                "issue_type": issue_type,
+                "severity": severity,
+                "message": draft["explanation"],
+                "affected_count": len(labels),
+                "examples": examples,
+                "kind": step["op"],
+                "row_index": labels[0] if labels else None,
+                "status": "open",
+                "created_at": _now(),
+                "_signature": json.dumps(step, sort_keys=True),
+            }
+        )
+    order = {"high": 0, "medium": 1, "low": 2}
+    issues.sort(key=lambda i: (order[i["severity"]], -i["affected_count"]))
+    state["issues"][version["id"]] = issues
+    return issues
+
+
+@route("GET", r"/profiling/(\d+)/issues")
+def _list_issues(call: Call) -> list[dict[str, Any]]:
+    assert call.user is not None
+    version = _get_version(int(call.args[0]), call.user)
+    if version["id"] not in db()["profiles"]:
+        raise APIError(404, "Chưa có kết quả profiling cho phiên bản này.")
+    issues = _build_issues(version, db()["frames"][version["id"]])
+    return [{k: v for k, v in i.items() if not k.startswith("_")} for i in issues]
 
 
 @route("GET", r"/profiling/(\d+)")
@@ -675,11 +813,18 @@ def _generate_suggestions(call: Call) -> list[dict[str, Any]]:
     if not isinstance(version_id, int):
         raise validation_error("version_id", "Thiếu version_id.")
     version = _get_version(version_id, call.user)
+    if version["id"] not in state["profiles"]:
+        _profile_version(version)
     state["suggestions"] = [s for s in state["suggestions"] if s["version_id"] != version["id"]]
     state["ai_calls"] += 1
     now = _now()
     created = []
+    issues = {
+        i["_signature"]: i["id"] for i in _build_issues(version, state["frames"][version["id"]])
+    }
     for draft in mock_suggest.generate(state["frames"][version["id"]]):
+        signature = json.dumps(draft["proposed_rule"]["steps"][0], sort_keys=True)
+        draft = {**draft, "issue_id": issues.get(signature)}
         item = {
             "id": _next_id(),
             "version_id": version["id"],
@@ -1006,7 +1151,10 @@ def _change_password(call: Call) -> dict[str, str]:
     if len(new_password) < 8:
         raise validation_error("new_password", "Mật khẩu phải có ít nhất 8 ký tự.")
     call.user["password"] = new_password
-    return {"message": "Đã đổi mật khẩu."}
+    # Giống backend: token cũ bị vô hiệu nên trả kèm token mới cho phiên hiện tại.
+    call.user["token_generation"] = call.user.get("token_generation", 0) + 1
+    token = f"mock-token-{call.user['id']}.{call.user['token_generation']}"
+    return {"message": "Đã đổi mật khẩu.", "access_token": token, "token_type": "bearer"}
 
 
 # ---------------------------------------------------------------------------

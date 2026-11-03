@@ -132,4 +132,9 @@ def test_home_shows_current_dataset(run_view):
 def test_kpi_tiles_are_a_single_list(run_view):
     """Thẻ KPI sinh từ một danh sách: thêm thẻ mới không đổi bố cục."""
     at = run_view("dashboard", role="admin")
-    assert [m.label for m in at.metric] == ["Số project", "Tạo gần nhất", "Số chủ sở hữu"]
+    assert [m.label for m in at.metric] == [
+        "Số project",
+        "Số dataset",
+        "Tạo gần nhất",
+        "Số chủ sở hữu",
+    ]

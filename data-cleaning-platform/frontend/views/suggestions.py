@@ -15,6 +15,7 @@ from api_client import (
     apply_rules,
     decide_suggestion,
     generate_suggestions,
+    get_issues,
     list_suggestions,
     preview_rules,
 )
@@ -109,7 +110,16 @@ def _mapping_panel(version_id: int) -> list[dict[str, Any]]:
     return steps if include else []
 
 
+def _severity_by_issue(version_id: int) -> dict[int, str]:
+    """issue_id -> mức độ nghiêm trọng. Lỗi tra cứu (chưa profiling, mạng) chỉ làm thẻ mất màu."""
+    try:
+        return {i["id"]: i["severity"] for i in get_issues(get_token(), version_id)}
+    except APIError:
+        return {}
+
+
 def _suggestion_list(suggestions: list[dict[str, Any]], version_id: int) -> None:
+    severities = _severity_by_issue(version_id)
     counts = {
         s: sum(1 for x in suggestions if x["status"] == s)
         for s in ("pending", "accepted", "rejected")
@@ -160,7 +170,7 @@ def _suggestion_list(suggestions: list[dict[str, Any]], version_id: int) -> None
     if not shown:
         st.info(f"Không có gợi ý nào ở trạng thái “{chosen}”.", icon=":material/filter_alt_off:")
     for suggestion in shown:
-        decision = render_suggestion_card(suggestion)
+        decision = render_suggestion_card(suggestion, severities.get(suggestion.get("issue_id")))
         if decision:
             _decide(suggestion["id"], decision)
 

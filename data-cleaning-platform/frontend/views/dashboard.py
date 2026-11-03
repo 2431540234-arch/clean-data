@@ -80,6 +80,12 @@ def _project_card(project: dict[str, Any], current_user_id: int | None) -> None:
         )
         st.markdown(owner, unsafe_allow_html=True)
         st.caption(f"Tạo ngày {format_date(project['created_at'])}")
+        if project.get("dataset_count") is not None:
+            summary = f"{format_number(project['dataset_count'])} dataset"
+            if project.get("average_quality_score") is not None:
+                score = f"{project['average_quality_score']:.1f}".replace(".", ",")
+                summary += f" · Điểm chất lượng {score}"
+            st.caption(summary)
 
         if st.button("Mở", key=f"open_{pid}", type="primary", use_container_width=True):
             _open_project(project)
@@ -145,15 +151,22 @@ _KPI_COLUMNS = 4  # số thẻ KPI tối đa mỗi hàng; thêm thẻ mới ch�
 
 
 def _kpi_tiles(projects: list[dict[str, Any]], user: dict[str, Any]) -> list[tuple[str, str]]:
-    """Các thẻ KPI (nhãn, giá trị) tính từ dữ liệu có thật của ProjectOut.
+    """Các thẻ KPI (nhãn, giá trị) tính từ ProjectOut của GET /projects.
 
-    TODO(backend): thêm "Số dataset" và "Điểm chất lượng TB" khi backend có dữ liệu
-    (docs/BACKEND_TODO.md, mục 2 #1 và #6): chỉ cần thêm một dòng vào danh sách này.
+    "Số dataset" và "Điểm chất lượng TB" chỉ hiện khi backend trả `dataset_count` /
+    `average_quality_score`; điểm TB là trung bình các điểm đã có, thiếu hết thì ẩn thẻ.
     """
-    tiles = [
-        ("Số project", format_number(len(projects))),
-        ("Tạo gần nhất", format_date(projects[0]["created_at"])),
+    tiles = [("Số project", format_number(len(projects)))]
+    if all(p.get("dataset_count") is not None for p in projects):
+        tiles.append(("Số dataset", format_number(sum(p["dataset_count"] for p in projects))))
+    scores = [
+        p["average_quality_score"] for p in projects if p.get("average_quality_score") is not None
     ]
+    if scores:
+        tiles.append(
+            ("Điểm chất lượng TB", f"{sum(scores) / len(scores):.1f}".replace(".", ",") + " / 100")
+        )
+    tiles.append(("Tạo gần nhất", format_date(projects[0]["created_at"])))
     if user.get("role") == "admin":
         tiles.append(("Số chủ sở hữu", format_number(len({p["owner_id"] for p in projects}))))
     return tiles

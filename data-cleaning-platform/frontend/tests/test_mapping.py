@@ -112,11 +112,16 @@ def _suggest(at, text=TARGETS_TEXT):
     return at
 
 
+def _boxes(at):
+    """Ô chọn cột đích của bảng mapping (bỏ ô chọn project/dataset của thanh ngữ cảnh)."""
+    return [s for s in at.selectbox if not str(s.key).startswith("ctx_open")]
+
+
 def test_page_renders_schema_form_without_suggestion(run_view, call_api):
     at = _page(run_view, call_api)
     assert not at.exception
     assert [t.label for t in at.text_area] == ["Danh sách cột chuẩn"]
-    assert not at.selectbox  # chưa gợi ý thì chưa có bảng mapping
+    assert not _boxes(at)  # chưa gợi ý thì chưa có bảng mapping
 
 
 def test_page_empty_schema_shows_problem(run_view, call_api):
@@ -127,8 +132,8 @@ def test_page_empty_schema_shows_problem(run_view, call_api):
 def test_page_shows_suggestions_with_status_and_counts(run_view, call_api):
     at = _suggest(_page(run_view, call_api))
     assert not at.exception
-    assert len(at.selectbox) == len(HEADERS)
-    defaults = [s.value for s in at.selectbox]
+    assert len(_boxes(at)) == len(HEADERS)
+    defaults = [s.value for s in _boxes(at)]
     assert defaults == ["ho_ten", KEEP, "so_dien_thoai", "ngay_sinh", "tuoi", "tinh_thanh", KEEP]
     metrics = {m.label: m.value for m in at.metric}
     assert metrics == {"Cột trong file": "7", "Gợi ý khớp": "5/7", "Sẽ đổi tên": "5"}
@@ -138,7 +143,7 @@ def test_page_shows_suggestions_with_status_and_counts(run_view, call_api):
 
 def test_page_manual_choice_and_confirm_builds_steps(run_view, call_api):
     at = _suggest(_page(run_view, call_api))
-    at.selectbox[1].set_value("email").run()  # chọn tay cho "Email liên hệ"
+    _boxes(at)[1].set_value("email").run()  # chọn tay cho "Email liên hệ"
     assert {m.label: m.value for m in at.metric}["Sẽ đổi tên"] == "6"
     find_button(at, "Xác nhận mapping").click().run()
     context = at.session_state["work_context"]
@@ -154,7 +159,7 @@ def test_page_manual_choice_and_confirm_builds_steps(run_view, call_api):
 
 def test_page_duplicate_target_blocks_confirm(run_view, call_api):
     at = _suggest(_page(run_view, call_api))
-    at.selectbox[1].set_value("ho_ten").run()  # trùng với "Họ và tên" -> ho_ten
+    _boxes(at)[1].set_value("ho_ten").run()  # trùng với "Họ và tên" -> ho_ten
     assert any("hai cột cùng tên" in e.value for e in at.error)
     assert find_button(at, "Xác nhận mapping").disabled
     assert "pending_steps" not in at.session_state["work_context"]

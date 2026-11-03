@@ -204,7 +204,7 @@ def test_change_password_success(run_view):
     assert not at.exception and not at.error
     assert at.session_state["_mock_db"]["users"][1]["password"] == "MatKhauMoi1"
     assert any("Đã đổi mật khẩu" in t.value for t in at.toast)
-    assert at.session_state["access_token"] == "mock-token-2"  # vẫn đăng nhập
+    assert at.session_state["access_token"].startswith("mock-token-2")  # vẫn đăng nhập (token mới)
 
 
 def test_change_password_connection_error_is_friendly(run_view, monkeypatch):

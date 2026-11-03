@@ -11,7 +11,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from components.labels import type_label
+from components.labels import SEVERITY_COLORS, severity_label, type_label
 
 _PRIMARY = "#2563EB"
 _PALETTE = ["#2563EB", "#60A5FA", "#94A3B8", "#16A34A", "#D97706", "#DC2626", "#7C3AED"]
@@ -70,8 +70,8 @@ def render_type_chart(column_profiles: list[dict[str, Any]]) -> None:
 def render_distribution_chart(values: list[Any], column_name: str) -> None:
     """Biểu đồ phân bố giá trị của một cột: histogram cho số, thanh cho giá trị rời rạc.
 
-    Không có dữ liệu thì không hiện gì (không khung trống, không thông báo). Hiện chưa trang nào
-    gọi vì backend chưa có endpoint đọc dữ liệu của version (docs/BACKEND_TODO.md, mục 2 #3).
+    Không có dữ liệu thì không hiện gì (không khung trống, không thông báo). Dùng ở trang Tổng quan
+    với các dòng lấy từ GET /datasets/{id}/versions/{vid}/rows.
     """
     values = [v for v in values if v not in (None, "")]
     if not values:
@@ -115,3 +115,12 @@ def render_donut_chart(
     )
     figure.update_layout(height=300, **_DONUT_LAYOUT)
     st.plotly_chart(figure, theme="streamlit", use_container_width=True)
+
+
+def render_issue_chart(issues: list[dict[str, Any]]) -> None:
+    """Biểu đồ vành khuyên số lỗi theo mức độ nghiêm trọng (màu theo mức độ)."""
+    counts = Counter(i["severity"] for i in issues)
+    order = [s for s in ("high", "medium", "low") if counts[s]]
+    render_donut_chart(
+        [(severity_label(s), counts[s]) for s in order], [SEVERITY_COLORS[s] for s in order]
+    )

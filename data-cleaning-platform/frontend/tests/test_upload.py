@@ -117,7 +117,7 @@ def test_upload_page_initial_state(run_view):
     at = run_view("upload", role="user")
     assert not at.exception
     assert at.title[0].value == "Tải lên"
-    assert [s.label for s in at.selectbox] == ["Project"]
+    assert at.selectbox[0].label == "Project"  # ô chọn project để tải lên
     assert any(b.label == "Tải lên" and b.disabled for b in at.button)  # chưa chọn file
     assert any("tối đa 50 MB" in c.value for c in at.caption)
 
@@ -197,12 +197,23 @@ def test_context_bar_clears_inaccessible_dataset():
     assert at.session_state["work_context"]["dataset_id"] is None
 
 
-def test_open_dataset_by_id_sets_context():
+def test_open_dataset_from_list_sets_context():
     at = _run_bar("user", {})
-    at.number_input(key="ctx_open_empty").set_value(1).run()
+    # danh sách dataset của project đang chọn (project đầu tiên: "Khách hàng 2026")
+    assert at.selectbox(key="ctx_open_empty_project").value == 1  # "Khách hàng 2026"
+    dataset_box = at.selectbox(key="ctx_open_empty_dataset_1")
+    assert dataset_box.options == ["khach_hang_ban.csv (#1)"]
     at.button(key="ctx_open_empty_open").click().run()
     context = at.session_state["work_context"]
     assert context["dataset_id"] == 1 and context["dataset_name"] == "khach_hang_ban.csv"
+    assert context["project_name"] == "Khách hàng 2026"
+
+
+def test_open_dataset_picker_handles_project_without_datasets():
+    at = _run_bar("user", {})
+    at.selectbox(key="ctx_open_empty_project").set_value(2).run()  # "Đơn hàng quý 3"
+    assert any("chưa có dataset nào" in i.value for i in at.info)
+    assert not [b for b in at.button if b.key == "ctx_open_empty_open"]
 
 
 def test_context_bar_fetches_project_name_when_missing():

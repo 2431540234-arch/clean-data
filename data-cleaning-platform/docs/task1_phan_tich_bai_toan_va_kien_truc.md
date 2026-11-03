@@ -155,47 +155,56 @@ Trình duyệt ──► Streamlit + Plotly ──HTTP/JSON──► FastAPI
 ## Slide 8 – Mô hình dữ liệu (ERD), phân quyền và bảo mật
 
 **Ý chính**
-- 9 bảng: users, projects, datasets, dataset_versions, schema_profiles.
-- Còn lại: suggestions, rules, audit_logs, quality_reports.
+- 16 bảng, chia 5 nhóm: người dùng, dữ liệu, lỗi và gợi ý, chất lượng, nhật ký.
 - Quan hệ: user 1–n project, project 1–n dataset, dataset 1–n phiên bản.
-- Đăng nhập bằng JWT; mật khẩu băm bằng bcrypt.
-- Phân quyền admin/user bằng dependency của FastAPI.
+- `datasets.current_version_id` trỏ phiên bản đang dùng; undo chỉ đổi con trỏ này.
+- Đăng nhập bằng JWT; mật khẩu băm bcrypt; phân quyền admin/user ở backend.
+- Xóa project xóa cả dữ liệu con, riêng audit_logs luôn được giữ lại.
 
-**Gợi ý hình:** sơ đồ ERD 9 bảng (vẽ từ `backend/app/models/` và migration `0001_initial_schema.py`).
+**Gợi ý bảng:** (nhóm | các bảng)
+| Nhóm | Bảng |
+|---|---|
+| Người dùng | `users`, `project_members` |
+| Dữ liệu | `projects`, `datasets`, `dataset_versions`, `schema_profiles`, `column_mappings` |
+| Lỗi và gợi ý | `data_issues`, `suggestions`, `rules`, `cleaning_operations` |
+| Chất lượng và xuất file | `quality_reports`, `exports` |
+| Tác vụ nền, AI, nhật ký | `jobs`, `ai_requests`, `audit_logs` |
 
-**Ghi chú thuyết trình:** Mọi thay đổi dữ liệu đều có thể truy vết qua audit_logs và quay lại qua dataset_versions. Quyền được kiểm tra ở tầng backend nên người dùng thường không thể gọi các API của admin.
+**Gợi ý hình:** sơ đồ ERD 16 bảng, chụp từ Mermaid trong `docs/database.md` (nguồn: `backend/app/models/` và migration `0001`).
+
+**Ghi chú thuyết trình:** Dữ liệu từng dòng nằm trong file Parquet, PostgreSQL chỉ lưu metadata nên truy vấn nhẹ. Mọi thay đổi đều truy vết được qua audit_logs và quay lại được qua dataset_versions. Quyền được kiểm tra ở tầng backend nên người dùng thường không gọi được API của admin.
 
 ---
 
 ## Slide 9 – Kết quả, demo và liên kết với sản phẩm nhóm
 
 **Ý chính**
-- Đã dựng khung dự án backend, frontend, database chạy bằng Docker Compose.
-- Migration tạo đủ 9 bảng; `/health` và Swagger `/docs` hoạt động.
-- Kiểm thử và lint: pytest 8 test đạt, ruff và black đều đạt.
-- Phần phân tích này là cơ sở để các bạn cài detector, rule, giao diện.
-- Việc còn lại: hoàn thiện chức năng và deploy có URL công khai.
+- Đã dựng backend, frontend, PostgreSQL chạy bằng Docker Compose, 3 service healthy.
+- Migration tạo đủ 16 bảng; `alembic check` xác nhận model khớp migration.
+- `/health` và Swagger `/docs` hoạt động; pytest 16 test đạt, ruff và black đạt.
+- GitHub Actions chạy lint, kiểm tra migration và pytest cho mỗi lần push.
+- Chưa làm: detector, AI gợi ý, giao diện đầy đủ; chưa deploy URL công khai.
 
 **Gợi ý hình (ảnh chụp màn hình thật cần chụp):** (1) `docker compose ps` với 3 service healthy; (2) trang Swagger `/docs`; (3) kết quả `pytest`; (4) URL deploy khi đã có.
 
-**Ghi chú thuyết trình:** Đây là kết quả của phần hạ tầng và thiết kế mà em phụ trách. Phần chức năng chi tiết sẽ do các thành viên khác trình bày, còn sản phẩm cuối sẽ chạy online theo yêu cầu của đề.
+**Ghi chú thuyết trình:** Đây là kết quả phần hạ tầng và thiết kế em phụ trách: môi trường chạy được, database hoàn chỉnh và quy trình kiểm tra tự động. Phần chức năng chi tiết sẽ do các thành viên khác trình bày, còn sản phẩm cuối sẽ chạy online theo yêu cầu của đề.
 
-> Lưu ý khi nộp: chỉ ghi vào slide những gì đã thật sự chạy được. Nếu đến lúc nộp đã deploy xong, thay ý cuối bằng URL công khai.
+> Số liệu trên đo ngày 14/10/2026 (pytest: 16 passed, 11 skipped là test chưa viết). Trước khi nộp hãy chạy lại và cập nhật nếu thay đổi. Chỉ ghi những gì thật sự chạy được; nếu đã deploy, thêm URL công khai vào slide.
 
 ---
 
 ## Slide 10 – Khó khăn, hướng cải thiện và nguồn tham khảo
 
 **Ý chính**
-- Khó khăn: lệch phiên bản Python (3.13 so với 3.11 của dự án).
-- Khó khăn: cổng Postgres 5432 trùng project khác; passlib cần ghim bcrypt 4.0.1.
-- Cải thiện: hoàn thiện deploy online (Render/Railway/Fly.io, Neon/Supabase).
-- Cải thiện: xử lý nền bằng BackgroundTasks hoặc RQ/Celery cho file lớn.
-- Cải thiện: bổ sung thêm test và hỗ trợ thêm AI provider.
+- Khó khăn: lệch phiên bản Python (3.13 so với 3.11); cổng Postgres 5432 bị trùng.
+- Khó khăn: passlib cần ghim bcrypt 4.0.1 để băm mật khẩu đúng.
+- Khó khăn: đổi schema khi đã có dữ liệu; xử lý bằng migration có backfill.
+- Cải thiện: cài detector, AI gợi ý, giao diện và deploy online (Render/Railway, Neon/Supabase).
+- Cải thiện: xử lý nền cho file lớn (BackgroundTasks hoặc RQ/Celery), thêm test và AI provider.
 
 **Gợi ý hình:** bảng 2 cột (Khó khăn | Cách xử lý) và danh sách nguồn ở cuối slide.
 
-**Ghi chú thuyết trình:** Khó khăn lớn nhất là đồng bộ môi trường giữa các máy, nên em dùng Docker và ghim phiên bản thư viện. Hướng tiếp theo là đưa hệ thống lên cloud để có URL công khai.
+**Ghi chú thuyết trình:** Khó khăn lớn nhất là đồng bộ môi trường giữa các máy, nên em dùng Docker và ghim phiên bản thư viện. Khi mở rộng schema, em viết migration có chuyển dữ liệu cũ và kiểm tra cả chiều nâng cấp lẫn hạ cấp. Hướng tiếp theo là hoàn thiện chức năng rồi đưa hệ thống lên cloud để có URL công khai.
 
 **Nguồn tham khảo**
 1. Pandas – https://pandas.pydata.org/docs/

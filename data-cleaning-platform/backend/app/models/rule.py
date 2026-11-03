@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from app.models.project import Project
 
 # rule_type = tên op của DSL (app.schemas.rule.ALLOWED_OPS) cho rule một bước, hoặc 'ruleset'
-# cho rule nhiều bước (params chứa nguyên RuleSet). Migration 0002 giữ bản sao danh sách này;
+# cho rule nhiều bước (params chứa nguyên RuleSet). Migration 0001 giữ bản sao danh sách này;
 # test_rule_type_constraint_matches_dsl bắt lỗi nếu hai bên lệch nhau.
 RULE_TYPES = (*sorted(ALLOWED_OPS), "ruleset")
 _RULE_TYPES_SQL = ", ".join(f"'{t}'" for t in RULE_TYPES)

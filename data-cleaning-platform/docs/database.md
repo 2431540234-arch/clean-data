@@ -4,7 +4,7 @@ PostgreSQL 16, quản lý bằng SQLAlchemy 2.0 (`backend/app/models/`) và Alem
 (`backend/alembic/versions/`). **PostgreSQL chỉ lưu metadata**; dữ liệu từng dòng của mỗi phiên
 bản nằm trong file Parquet trên object storage, được trỏ tới bởi `dataset_versions.storage_path`.
 
-Schema hiện tại = `0001_initial_schema` + `0002_complete_schema` (16 bảng nghiệp vụ + `alembic_version`).
+Schema hiện tại = `0001_initial_schema` (16 bảng nghiệp vụ + `alembic_version`).
 
 ## Quy ước
 
@@ -308,28 +308,17 @@ Tóm tắt: **upload → phân tích (profile + phát hiện lỗi) → gợi ý
 tạo migration cập nhật CHECK này; `test_rule_type_constraint_matches_dsl_and_migration` sẽ báo lỗi nếu
 model, DSL và migration lệch nhau.
 
-## Migration `0002_complete_schema`
+## Migration `0001_initial_schema`
 
-Nâng cấp từ `0001` (cột đổi tên bằng `alter_column`, dữ liệu cũ được chuyển trước khi xóa cột):
-
-| Bảng | Thay đổi so với 0001 |
-|---|---|
-| `datasets` | `created_by` → `uploaded_by` (nullable); thêm `file_type`, `file_size`, `encoding`, `sheet_name`, `current_version_id`, `updated_at` |
-| `dataset_versions` | `version_no` → `version_number`; **xóa `is_current`** (backfill `datasets.current_version_id`, nếu nhiều bản `is_current` thì lấy `version_number` lớn nhất); thêm `column_count`, `change_summary` |
-| `schema_profiles` | **Giữ** `null_ratio`/`unique_ratio`; thêm `null_count`/`unique_count` (backfill = `round(ratio × row_count)`), `column_index`, `min/max/mean_value`, `detected_format` |
-| `suggestions` | `rule_json` → `proposed_rule`; **xóa `severity`** (nay ở `data_issues.severity`); `source` `rule` → `rule_engine`; thêm `issue_id`, `suggestion_type`, `target_column`, `confidence`, `reviewed_by`, `reviewed_at` |
-| `rules` | `rule_json` tách thành `rule_type`/`target_column`/`params` (xem trên) rồi xóa; thêm `description`, `is_active`, `updated_at`; `project_id` nullable |
-| `quality_reports` | `score` → `overall_score`, `metrics` → `issue_summary`; thêm 4 điểm thành phần; `version_id` unique (nếu trùng giữ bản mới nhất, có log cảnh báo); điểm ngoài 0–100 bị kẹp về khoảng hợp lệ |
-| `audit_logs` | `dataset_id`/`before_version`/`after_version`/`detail` → `project_id`/`entity_type`/`entity_id`/`old_value`/`new_value`; thêm `ip_address`; `user_id` nullable |
-| `projects`, `users` | Thêm `description` / `updated_at`; `users.role` có CHECK |
-| Bảng mới | `project_members` (backfill owner từ `projects.owner_id`), `data_issues`, `cleaning_operations`, `column_mappings`, `jobs`, `ai_requests`, `exports` |
+Toàn bộ schema nằm trong một migration duy nhất ([0001_initial_schema.py](../backend/alembic/versions/0001_initial_schema.py)):
+16 bảng, khóa ngoại có `ondelete`, các `CHECK`, unique và index như mô tả ở trên. Trước đây schema được chia
+thành `0001` (9 bảng) và `0002` (bổ sung cột, thêm 7 bảng); hai migration này đã được gộp lại thành
+`0001` và `0002` đã bị xóa.
 
 Lưu ý khi chạy:
 
-- Nếu dữ liệu cũ có `(dataset_id, version_number)` hoặc `(version_id, column_name)` bị trùng, migration
-  **dừng với thông báo rõ ràng** (không tự xóa dữ liệu) và vì DDL là transactional nên DB giữ nguyên ở `0001`.
-- `downgrade()` dựng lại cấu trúc 0001 và dữ liệu (`is_current`, `rule_json`, các cột audit, ...).
-  Cột `created_by`/`user_id` quay về `NOT NULL` nên downgrade sẽ lỗi nếu đã có dòng `NULL` (chủ ý).
-  Dữ liệu chỉ có ở schema mới (`ip_address`, `confidence`, ...) bị mất khi downgrade; `suggestions.severity`
-  được dựng lại từ lỗi gắn qua `issue_id` (nếu có), còn lại là `low`.
-- Lệnh: `alembic upgrade head`, `alembic downgrade -1`, `alembic check` (xác nhận model khớp migration).
+- Database tạo từ chuỗi `0001` + `0002` cũ có cấu trúc giống hệt. Nếu `alembic_version` của database đó
+  còn là `0002`, Alembic sẽ báo không tìm thấy revision; sửa bằng
+  `UPDATE alembic_version SET version_num = '0001';` (hoặc tạo lại database).
+- `downgrade()` xóa toàn bộ 16 bảng (gỡ khóa ngoại vòng `datasets.current_version_id` trước).
+- Lệnh: `alembic upgrade head`, `alembic downgrade base`, `alembic check` (xác nhận model khớp migration).

@@ -30,7 +30,7 @@ from app.models.rule import RULE_TYPES
 from app.schemas.rule import ALLOWED_OPS
 from app.services.audit import log_action
 
-MIGRATION_0002 = Path(__file__).parents[2] / "alembic" / "versions" / "0002_complete_schema.py"
+MIGRATION_0001 = Path(__file__).parents[2] / "alembic" / "versions" / "0001_initial_schema.py"
 
 
 def _count(db: Session, model: type) -> int:
@@ -267,7 +267,7 @@ def test_rule_type_constraint_matches_dsl_and_migration() -> None:
     """CHECK của rules.rule_type gồm đúng các op của DSL + 'ruleset', ở cả model và migration."""
     assert set(RULE_TYPES) == ALLOWED_OPS | {"ruleset"}
 
-    spec = importlib.util.spec_from_file_location("migration_0002", MIGRATION_0002)
+    spec = importlib.util.spec_from_file_location("migration_0001", MIGRATION_0001)
     assert spec is not None and spec.loader is not None
     migration = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(migration)

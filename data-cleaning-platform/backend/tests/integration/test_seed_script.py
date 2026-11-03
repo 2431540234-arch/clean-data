@@ -8,6 +8,8 @@ from sqlalchemy import func, select
 
 from app.core.config import settings
 from app.core.security import verify_password
+from app.models.dataset import Dataset
+from app.models.project import Project
 from app.models.user import User
 
 SEED_PATH = Path(__file__).parents[2] / "scripts" / "seed.py"
@@ -36,6 +38,16 @@ def test_second_run_does_not_duplicate(seed, db):
     seed.main()
     seed.main()
     assert db.scalar(select(func.count()).select_from(User)) == 2
+
+
+def test_seeds_demo_project_with_sample_dataset_once(seed, db):
+    seed.main()
+    seed.main()
+    projects = list(db.scalars(select(Project)))
+    assert [p.name for p in projects] == ["Khách hàng 2026"]
+    datasets = list(db.scalars(select(Dataset)))
+    assert len(datasets) == 1 and datasets[0].current_version_id is not None
+    assert datasets[0].current_version.row_count > 20
 
 
 def test_refuses_to_run_in_production(seed, db, monkeypatch):

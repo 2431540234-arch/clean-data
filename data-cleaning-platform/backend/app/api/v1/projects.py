@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, get_db
 from app.core.request_info import client_ip
 from app.models.user import User
-from app.repositories import project_repo
+from app.repositories import dataset_repo, project_repo
+from app.schemas.dataset import DatasetOut
 from app.schemas.project import ProjectCreate, ProjectOut, ProjectUpdate
 from app.services import access, storage
 from app.services.audit import log_action
@@ -66,6 +67,19 @@ def get_project(
 ) -> ProjectOut:
     """Lấy thông tin một project (404 nếu không có, 403 nếu không phải owner/admin)."""
     return ProjectOut.model_validate(access.get_owned_project(db, current_user, project_id))
+
+
+@router.get("/{project_id}/datasets", response_model=list[DatasetOut])
+def list_project_datasets(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[DatasetOut]:
+    """Danh sách dataset của project (mới nhất trước) để chọn lại dataset sau khi tải lại trang."""
+    project = access.get_owned_project(db, current_user, project_id)
+    return [
+        DatasetOut.model_validate(d) for d in dataset_repo.list_datasets_for_project(db, project.id)
+    ]
 
 
 @router.put("/{project_id}", response_model=ProjectOut)

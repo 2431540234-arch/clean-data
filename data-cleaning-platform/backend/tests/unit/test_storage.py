@@ -15,6 +15,9 @@ def test_backend_selection(monkeypatch):
     assert storage.get_backend_name() == "local"
     monkeypatch.setattr(settings, "STORAGE_ENDPOINT", "https://s3.example.com")
     assert storage.get_backend_name() == "s3"
+    monkeypatch.setattr(settings, "STORAGE_ENDPOINT", "https://<project>.supabase.co/storage/v1/s3")
+    assert storage.get_backend_name() == "local"  # giá trị mẫu chưa điền không tính là cấu hình
+    monkeypatch.setattr(settings, "STORAGE_ENDPOINT", "https://s3.example.com")
     monkeypatch.setattr(settings, "STORAGE_BACKEND", "local")  # cấu hình tường minh thắng
     assert storage.get_backend_name() == "local"
 

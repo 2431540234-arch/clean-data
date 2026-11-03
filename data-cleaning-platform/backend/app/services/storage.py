@@ -26,7 +26,11 @@ def get_backend_name() -> str:
     configured = settings.STORAGE_BACKEND.strip().lower()
     if configured in {"local", "s3"}:
         return configured
-    return "s3" if settings.STORAGE_ENDPOINT else "local"
+    endpoint = settings.STORAGE_ENDPOINT.strip()
+    # Giá trị mẫu chép từ .env.example (https://<project>.supabase.co) chưa phải cấu hình thật.
+    if endpoint and "<" not in endpoint:
+        return "s3"
+    return "local"
 
 
 # ---------------------------------------------------------------- khóa và driver local

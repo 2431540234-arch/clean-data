@@ -26,3 +26,11 @@ ngôn ngữ dễ hiểu. Chi tiết kỹ thuật đầy đủ nằm ở code, te
 (truy cập chéo dữ liệu, lộ lỗi nội bộ, đường dẫn file độc hại) bị chặn từ một điểm duy nhất thay vì
 phải nhớ ở từng API. Lưu file Parquet và để DB chỉ giữ metadata giúp DB nhỏ, nhanh; Parquet còn giữ
 nguyên chữ (số 0 đầu của số điện thoại không bị mất).
+
+## Nhóm 1. Dự án (projects)
+
+**Làm gì.** Cho người dùng tạo, xem danh sách, đổi tên và xóa dự án; danh sách có kèm số dataset của từng dự án để Dashboard hiển thị.
+
+**Thiết kế chính.** Mọi API đều lấy dự án qua hàm kiểm tra quyền sở hữu chung (không có thì 404, không phải của mình thì 403, admin được qua). Mỗi lần tạo/đổi tên/xóa đều ghi một dòng nhật ký trong **cùng giao dịch** với thao tác. Khi xóa dự án, DB xóa dây chuyền dataset và phiên bản, sau đó server mới dọn file Parquet; nếu dọn file lỗi thì chỉ ghi cảnh báo, không làm hỏng thao tác. Số dataset được đếm bằng một truy vấn gộp cho cả danh sách thay vì hỏi từng dự án.
+
+**Vì sao.** Đặt quyền ở một chỗ giúp các nhóm sau (dataset, rule...) dùng lại và không sót lỗ hổng truy cập chéo. Ghi nhật ký cùng giao dịch đảm bảo "đã làm" và "đã ghi lại" không bao giờ lệch nhau; dọn file sau khi commit tránh trường hợp mất file mà DB vẫn còn bản ghi. Tên dự án được cắt khoảng trắng và từ chối chuỗi rỗng để dữ liệu sạch ngay từ đầu.

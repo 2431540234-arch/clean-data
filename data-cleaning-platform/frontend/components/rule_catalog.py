@@ -1,8 +1,4 @@
-"""Danh mục 13 quy tắc hệ thống chuẩn hóa theo wireframe và docs/rule_dsl.md.
-
-Định nghĩa ở một nơi duy nhất cho cả trang Làm sạch (suggestions.py) và Thư viện quy tắc (rule_library.py).
-Mọi mã phép biến đổi (op) và tham số đều tuân thủ chính xác docs/rule_dsl.md.
-"""
+"""Danh mục quy tắc hệ thống dùng chung, khớp mã op trong docs/rule_dsl.md."""
 
 from dataclasses import dataclass, field
 from typing import Any
@@ -71,28 +67,8 @@ SYSTEM_RULES: tuple[SystemRuleDef, ...] = (
         op="replace_values",
         requires_column=True,
         default_params={"mapping": {}},
-        param_schema={
-            "mapping": {"label": "Cặp giá trị (cũ → mới)", "type": "mapping"}
-        },
+        param_schema={"mapping": {"label": "Cặp giá trị (cũ → mới)", "type": "mapping"}},
         icon="find_replace",
-    ),
-    SystemRuleDef(
-        id="standardize_province",
-        name="Chuẩn hóa tỉnh/thành",
-        description="Theo danh mục 63 tỉnh/thành Việt Nam (dùng replace_values)",
-        category="Văn bản",
-        op="replace_values",
-        requires_column=True,
-        default_params={
-            "mapping": {
-                "HCM": "Thành phố Hồ Chí Minh",
-                "TP.HCM": "Thành phố Hồ Chí Minh",
-                "TPHCM": "Thành phố Hồ Chí Minh",
-                "HN": "Thành phố Hà Nội",
-                "ĐN": "Thành phố Đà Nẵng",
-            }
-        },
-        icon="location_on",
     ),
     # --- 2. Nhóm Định dạng ---
     SystemRuleDef(
@@ -216,10 +192,40 @@ SYSTEM_RULES: tuple[SystemRuleDef, ...] = (
             "keep": {
                 "label": "Dòng giữ lại",
                 "type": "select",
-                "options": [("first", "Giữ dòng xuất hiện đầu tiên"), ("last", "Giữ dòng xuất hiện sau cùng")],
+                "options": [
+                    ("first", "Giữ dòng xuất hiện đầu tiên"),
+                    ("last", "Giữ dòng xuất hiện sau cùng"),
+                ],
             }
         },
         icon="content_copy",
+    ),
+    SystemRuleDef(
+        id="drop_rows_where",
+        name="Xóa dòng theo điều kiện",
+        description="Xóa các dòng có giá trị thỏa điều kiện trên cột được chọn",
+        category="Thiếu, trùng, ngoại lai",
+        op="drop_rows_where",
+        requires_column=True,
+        default_params={"operator": "eq", "value": ""},
+        param_schema={
+            "operator": {
+                "label": "Điều kiện",
+                "type": "select",
+                "options": [
+                    ("gt", "Lớn hơn"),
+                    ("lt", "Nhỏ hơn"),
+                    ("gte", "Lớn hơn hoặc bằng"),
+                    ("lte", "Nhỏ hơn hoặc bằng"),
+                    ("eq", "Bằng"),
+                    ("neq", "Khác"),
+                    ("is_null", "Đang trống"),
+                    ("is_not_null", "Không trống"),
+                ],
+            },
+            "value": {"label": "Giá trị so sánh", "type": "str", "default": ""},
+        },
+        icon="filter_alt",
     ),
     SystemRuleDef(
         id="flag_outliers",
@@ -263,6 +269,8 @@ SYSTEM_RULES: tuple[SystemRuleDef, ...] = (
     ),
 )
 
+SUPPORTED_RULE_OPS: tuple[str, ...] = tuple(rule.op for rule in SYSTEM_RULES)
+
 
 def get_system_rule(rule_id: str) -> SystemRuleDef | None:
     """Lấy định nghĩa quy tắc theo id."""
@@ -270,4 +278,3 @@ def get_system_rule(rule_id: str) -> SystemRuleDef | None:
         if r.id == rule_id or r.op == rule_id:
             return r
     return None
-

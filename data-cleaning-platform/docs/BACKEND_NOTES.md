@@ -124,7 +124,6 @@ Chạy cùng file `khach_hang_ban.csv` ở hai chế độ cho thấy luồng v�
 - **Kiểm thử AI với khóa thật:** AI mới được kiểm thử bằng client giả; cần thử một lần với khóa Anthropic thật (đặt `ANTHROPIC_API_KEY`) và xem lại prompt.
 - **Xử lý nền cho file rất lớn:** upload, profiling và áp dụng rule chạy đồng bộ trong request (giới hạn 50 MB, 1.000.000 dòng); file lớn hơn nên chuyển sang tác vụ nền (`workers/tasks.py` còn là khung).
 - **Lưu mapping và schema chuẩn của project:** endpoint #4, #5 (`column_mappings`, `target-schema`) chưa làm; hiện mapping được áp dụng bằng bước `rename_column`.
-- **Dọn script cũ:** `scripts/seed_demo.py` là file khung cũ, đã được thay bằng `scripts/seed.py`; có thể xóa.
 - **Dọn file lưu trữ mồ côi:** nếu ghi DB thất bại sau khi ghi file, hệ thống đã dọn; còn trường hợp tiến trình bị tắt đột ngột giữa chừng thì cần một tác vụ quét định kỳ.
 - **Chặn đăng nhập sai nhiều tiến trình:** bộ đếm đọc từ DB nên dùng chung được, nhưng chưa có giới hạn tốc độ chung cho các API khác (nên đặt ở reverse proxy khi deploy).
 - **Deploy online:** `deploy.yml` còn là khung; cần URL công khai theo yêu cầu đề.

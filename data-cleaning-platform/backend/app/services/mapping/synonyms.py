@@ -4,6 +4,8 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
+from app.services.mapping.normalizer import normalize_column_name
+
 _SYNONYMS_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "column_synonyms.json"
 
 
@@ -17,10 +19,16 @@ def load_synonyms() -> dict[str, list[str]]:
         return json.load(f)
 
 
-def find_canonical_name(normalized_name: str) -> str | None:
-    """Tìm tên cột chuẩn tương ứng với một tên cột đã chuẩn hóa, dựa trên từ điển đồng nghĩa.
+@lru_cache
+def _index() -> dict[str, str]:
+    """Tên đã chuẩn hóa (của tên chuẩn lẫn mọi biến thể) -> tên chuẩn."""
+    index: dict[str, str] = {}
+    for canonical, variants in load_synonyms().items():
+        for name in [canonical, *variants]:
+            index.setdefault(normalize_column_name(name), canonical)
+    return index
 
-    Gợi ý cách làm: duyệt load_synonyms(), nếu normalized_name khớp với bất kỳ biến thể
-    nào (hoặc chính là key) thì trả về key đó; nếu không tìm thấy trả về None.
-    """
-    raise NotImplementedError("TODO: tra cứu normalized_name trong từ điển đồng nghĩa.")
+
+def find_canonical_name(normalized_name: str) -> str | None:
+    """Tên cột chuẩn ứng với một tên cột đã chuẩn hóa theo từ điển đồng nghĩa, hoặc None."""
+    return _index().get(normalized_name)

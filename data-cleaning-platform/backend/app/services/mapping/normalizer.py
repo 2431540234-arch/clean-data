@@ -1,10 +1,17 @@
 """Chuẩn hóa tên cột: bỏ dấu tiếng Việt, lowercase, bỏ ký tự đặc biệt."""
 
+import re
+import unicodedata
+
+from unidecode import unidecode
+
+_NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
+
 
 def normalize_column_name(raw_name: str) -> str:
-    """Chuẩn hóa tên cột về dạng không dấu, lowercase, dùng underscore.
+    """Chuẩn hóa tên cột về dạng không dấu, lowercase, nối bằng dấu gạch dưới.
 
-    Gợi ý cách làm: dùng Unidecode(raw_name) để bỏ dấu, .lower(), rồi regex thay
-    khoảng trắng/ký tự đặc biệt bằng "_".
+    Ví dụ: "Tỉnh/Thành phố" -> "tinh_thanh_pho", "Số ĐT" -> "so_dt", " E-mail " -> "e_mail".
     """
-    raise NotImplementedError("TODO: dùng Unidecode + lowercase + regex để chuẩn hóa tên cột.")
+    text = unidecode(unicodedata.normalize("NFC", str(raw_name))).lower()
+    return _NON_ALNUM_RE.sub("_", text).strip("_")

@@ -50,3 +50,11 @@ nguyên chữ (số 0 đầu của số điện thoại không bị mất).
 **Thiết kế chính.** Kiểu của cột được suy ra theo thứ tự email, điện thoại, ngày, số nguyên, số thực, đúng/sai, văn bản, và một kiểu thắng khi có từ 80% giá trị khớp, nên vài giá trị bẩn không làm hỏng kết luận. Có 8 detector độc lập; một detector lỗi không làm hỏng các detector còn lại. Một dòng trong bảng lỗi mô tả cả nhóm lỗi của một cột (ví dụ "13 ngày sai định dạng") kèm số dòng và giá trị mẫu, nên mình thêm hai cột `affected_count` và `details` cho `data_issues` (migration 0003). Danh sách 63 tỉnh/thành được bổ sung đầy đủ để nhận ra các cách viết khác nhau của cùng một tỉnh.
 
 **Vì sao.** Phiên bản dữ liệu không đổi sau khi tạo nên chạy profiling lần hai chỉ trả lại kết quả cũ, giúp các gợi ý đã gắn với một lỗi không bị mất liên kết. Mọi kiểm tra đắt tiền (số điện thoại, ngày) chỉ chạy trên giá trị khác nhau của cột để bảng lớn vẫn nhanh. Cột lỗi được xếp từ nghiêm trọng đến nhẹ để giao diện hiển thị thứ quan trọng trước.
+
+## Nhóm 4. Gợi ý ghép tên cột (mapping)
+
+**Làm gì.** Người dùng đưa danh sách tên cột chuẩn (ví dụ `ho_ten`, `email`), hệ thống trả về với mỗi cột trong file đã tải lên: nên đổi thành cột chuẩn nào, hoặc "không khớp".
+
+**Thiết kế chính.** Mọi tên cột được chuẩn hóa trước (bỏ dấu, chữ thường, ký tự lạ thành `_`) nên "Số ĐT" và "so_dt" là một. Sau đó thử lần lượt: trùng tên, cùng nhóm đồng nghĩa trong từ điển (sdt, phone, điện thoại...), chứa đủ các từ của cột chuẩn ("Email liên hệ" chứa "email"), rồi gần giống (sai chính tả nhẹ). Mỗi cột chuẩn chỉ được gán cho một cột nguồn; nếu hai cột tranh nhau thì cặp có điểm tin cậy cao hơn thắng. Kết quả luôn có đủ mọi cột nguồn đúng thứ tự, cột không khớp là `null`. Bước dự phòng bằng AI cho các cột còn lại sẽ được nối ở Nhóm 5 cùng hạ tầng AI.
+
+**Vì sao.** Việc ghép bằng quy tắc là nhanh, miễn phí, giải thích được và không cần khóa AI nên đủ cho phần lớn file tiếng Việt thực tế. Quy tắc "một cột chuẩn một cột nguồn" tránh tình huống hai cột cùng bị đổi tên thành một tên, làm hỏng dữ liệu. Endpoint cũng sửa lỗi cũ của khung code: body phải là một mảng JSON nên cần khai báo `Body()` rõ ràng.

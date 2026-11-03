@@ -117,7 +117,7 @@ def test_upload_page_initial_state(run_view):
     at = run_view("upload", role="user")
     assert not at.exception
     assert at.title[0].value == "Tải lên"
-    assert at.selectbox[0].label == "Project"  # ô chọn project để tải lên
+    assert any(selectbox.label == "Project" for selectbox in at.selectbox)
     assert any(b.label == "Tải lên" and b.disabled for b in at.button)  # chưa chọn file
     assert any("tối đa 50 MB" in c.value for c in at.caption)
 

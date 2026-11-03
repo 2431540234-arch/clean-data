@@ -8,11 +8,12 @@ Hỗ trợ responsive 375px: cuộn ngang hoặc flex-wrap gọn gàng, không x
 """
 
 from html import escape
+
 import streamlit as st
 
 from api_client import APIError, list_projects
-from components.navigation import HEADER_NAV_KEYS, get_page
-from components.ui import badge_html
+from components.navigation import FLOW_KEYS, HEADER_NAV_KEYS, get_page
+from components.ui import badge_html, safe_page_link
 from state import (
     get_context,
     get_current_user,
@@ -23,6 +24,27 @@ from state import (
     set_context,
     set_flash,
 )
+
+
+def _change_project(project_names: dict[int, str]) -> None:
+    selected_project_id = st.session_state["header_quick_project_select"]
+    context = get_context()
+    if selected_project_id == context.get("project_id"):
+        return
+    set_context(
+        project_id=selected_project_id,
+        project_name=project_names[selected_project_id],
+        dataset_id=None,
+        dataset_name=None,
+        version_id=None,
+        upload_result=None,
+        rule_queue=[],
+        preview=None,
+        pending_steps=None,
+        pending_version_id=None,
+        last_applied=None,
+        mapping=None,
+    )
 
 
 def render_header(current_page_key: str = "home") -> None:
@@ -42,13 +64,14 @@ def render_header(current_page_key: str = "home") -> None:
     area_name = page_def.group or "Chung"
 
     # --- HÀNG 1: TOP BAR ---
-    top_col_brand, top_col_project, top_col_user, top_col_logout = st.columns(
-        [3.5, 3.5, 3.2, 1.3], gap="small", vertical_alignment="center"
-    )
+    with st.container(key="dc-header-top"):
+        top_col_brand, top_col_project, top_col_user, top_col_logout = st.columns(
+            [3.5, 3.5, 3.2, 1.3], gap="small", vertical_alignment="center"
+        )
 
-    with top_col_brand:
-        st.markdown(
-            f"""<div class="dc-header-brand">
+        with top_col_brand:
+            st.markdown(
+                f"""<div class="dc-header-brand">
                 <span class="dc-logo-badge">DC</span>
                 <span class="dc-logo-text">DataClean</span>
                 <span class="dc-breadcrumb-sep">·</span>
@@ -56,96 +79,103 @@ def render_header(current_page_key: str = "home") -> None:
                 <span class="dc-breadcrumb-sep">/</span>
                 <span class="dc-breadcrumb-title">{escape(page_title)}</span>
             </div>""",
-            unsafe_allow_html=True,
-        )
-
-    with top_col_project:
-        projects = []
-        token = get_token()
-        if token:
-            try:
-                projects = list_projects(token)
-            except APIError:
-                projects = []
-
-        context = get_context()
-        active_project_id = context.get("project_id")
-
-        if projects:
-            options = {p["id"]: p["name"] for p in projects}
-            p_ids = list(options.keys())
-            current_idx = p_ids.index(active_project_id) if active_project_id in p_ids else 0
-
-            selected_pid = st.selectbox(
-                "Dự án",
-                options=p_ids,
-                index=current_idx,
-                format_func=lambda pid: f"📁 {options.get(pid, pid)}",
-                label_visibility="collapsed",
-                key="header_quick_project_select",
+                unsafe_allow_html=True,
             )
-            if selected_pid != active_project_id:
-                set_context(project_id=selected_pid)
-                st.rerun()
-        else:
-            st.caption("📁 *Chưa có dự án*")
 
-    with top_col_user:
-        badge_code = badge_html(role_label, role_kind)
-        st.markdown(
-            f"""<div class="dc-header-user-pill">
+        with top_col_project:
+            projects: list[dict] = []
+            token = get_token()
+            if token:
+                try:
+                    projects = list_projects(token)
+                except APIError as exc:
+                    st.error(f"Không tải được danh sách dự án: {exc.detail}")
+
+            context = get_context()
+            active_project_id = context.get("project_id")
+
+            if projects:
+                options = {p["id"]: p["name"] for p in projects}
+                project_ids = list(options)
+                current_index = (
+                    project_ids.index(active_project_id) if active_project_id in options else 0
+                )
+                if (
+                    active_project_id in options
+                    and st.session_state.get("header_quick_project_select") != active_project_id
+                ):
+                    st.session_state["header_quick_project_select"] = active_project_id
+                st.selectbox(
+                    "Dự án",
+                    options=project_ids,
+                    index=current_index,
+                    format_func=lambda pid: options.get(pid, str(pid)),
+                    label_visibility="collapsed",
+                    key="header_quick_project_select",
+                    on_change=_change_project,
+                    args=(options,),
+                )
+            else:
+                st.caption("Chưa có dự án")
+
+        with top_col_user:
+            badge_code = badge_html(role_label, role_kind)
+            st.markdown(
+                f"""<div class="dc-header-user-pill">
                 <div class="dc-user-avatar">{escape(initials)}</div>
                 <div class="dc-user-meta">
                     <span class="dc-user-name" title="{escape(name)}">{escape(name)}</span>
                     {badge_code}
                 </div>
             </div>""",
-            unsafe_allow_html=True,
-        )
+                unsafe_allow_html=True,
+            )
 
-    with top_col_logout:
-        if st.button("Đăng xuất", key="header_logout_btn", icon=":material/logout:", help="Đăng xuất khỏi hệ thống"):
-            logout()
-            set_flash("Bạn đã đăng xuất thành công.", "info")
-            st.rerun()
+        with top_col_logout:
+            if st.button(
+                "Đăng xuất",
+                key="header_logout_btn",
+                icon=":material/logout:",
+                help="Đăng xuất khỏi hệ thống",
+            ):
+                logout()
+                set_flash("Bạn đã đăng xuất thành công.", "info")
+                st.rerun()
 
     # --- HÀNG 2: MENU NGANG ĐIỀU HƯỚNG ---
     nav_keys = list(HEADER_NAV_KEYS)
     if is_admin():
         nav_keys.append("admin_users")
 
-    nav_cols = st.columns(len(nav_keys), gap="small")
-
-    active_nav_key = current_page_key
-    if current_page_key in ("upload", "overview", "mapping", "suggestions", "history", "export"):
+    if current_page_key in FLOW_KEYS:
         active_nav_key = "suggestions"
     elif current_page_key in ("admin_users", "admin_stats"):
         active_nav_key = "admin_users"
+    else:
+        active_nav_key = current_page_key
 
-    for col, key in zip(nav_cols, nav_keys, strict=True):
-        p = get_page(key)
-        nav_label = "Quản trị" if key == "admin_users" else p.title
-        with col:
-            # st.page_link xử lý an toàn cho cả khi chạy app.py lẫn khi chạy AppTest
-            try:
-                st.page_link(
-                    p.file,
-                    label=nav_label,
-                    icon=f":material/{p.icon}:",
-                    use_container_width=True,
-                    help=f"Mở trang {nav_label}",
+    if current_page_key in ("admin_users", "admin_stats"):
+        active_nav_key = "admin_users"
+
+    with st.container(key="dc-header-nav"):
+        nav_cols = st.columns(len(nav_keys), gap="small")
+        for col, key in zip(nav_cols, nav_keys, strict=True):
+            page = get_page(key)
+            nav_label = {
+                "audit": "Nhật ký",
+                "admin_users": "Quản trị",
+            }.get(key, page.title)
+            with col:
+                container_key = (
+                    f"dc-nav-item-{key}-active" if key == active_nav_key else f"dc-nav-item-{key}"
                 )
-            except Exception:
-                try:
-                    rel_file = p.file.split("/")[-1]
-                    st.page_link(
-                        rel_file,
+                with st.container(key=container_key):
+                    safe_page_link(
+                        page.file,
                         label=nav_label,
-                        icon=f":material/{p.icon}:",
+                        icon=f":material/{page.icon}:",
                         use_container_width=True,
                         help=f"Mở trang {nav_label}",
                     )
-                except Exception:
-                    st.button(nav_label, icon=f":material/{p.icon}:", key=f"hdr_nav_btn_{key}", use_container_width=True)
 
     st.markdown('<div class="dc-header-divider"></div>', unsafe_allow_html=True)

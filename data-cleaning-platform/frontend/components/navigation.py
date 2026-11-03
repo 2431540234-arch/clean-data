@@ -31,9 +31,7 @@ GROUP_ADMIN = "Quản trị"
 PAGES: tuple[PageDef, ...] = (
     PageDef("login", "views/login.py", "Đăng nhập", "login", "dang-nhap", None, default=True),
     PageDef("home", "views/home.py", "Trang chủ", "home", "", GROUP_OVERVIEW, default=True),
-    PageDef(
-        "dashboard", "views/dashboard.py", "Dự án", "dashboard", "dashboard", GROUP_OVERVIEW
-    ),
+    PageDef("dashboard", "views/dashboard.py", "Dự án", "dashboard", "dashboard", GROUP_OVERVIEW),
     PageDef("upload", "views/upload.py", "Tải lên", "upload_file", "tai-len", GROUP_FLOW),
     PageDef(
         "overview",
@@ -127,6 +125,13 @@ _BY_KEY = {page.key: page for page in PAGES}
 def get_page(key: str) -> PageDef:
     """Lấy khai báo trang theo key."""
     return _BY_KEY[key]
+
+
+def get_page_key(title: str | None) -> str:
+    """Suy ra key trang từ tiêu đề hiển thị khi trang chưa truyền key tường minh."""
+    if title == "Dashboard" or (title and title.startswith("Xin chào")):
+        return "dashboard" if title == "Dashboard" else "home"
+    return next((page.key for page in PAGES if page.title == title), "home")
 
 
 def build_pages(logged_in: bool, admin: bool) -> list[st.Page] | dict[str, list[st.Page]]:

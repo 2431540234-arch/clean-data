@@ -17,7 +17,6 @@ from components.ui import (
     page_shell,
     safe_call,
     section,
-    stepper,
 )
 from state import get_context, get_token, set_context
 
@@ -110,7 +109,6 @@ def _export_card(key: str, dataset: dict[str, Any], version: dict[str, Any]) -> 
 
 
 page_shell("Xuất dữ liệu", "Tải dữ liệu đã làm sạch kèm báo cáo chất lượng")
-stepper("export")
 active = dataset_context_bar()
 dataset, version = active.dataset, active.version
 

@@ -26,7 +26,6 @@ from components.ui import (
     page_shell,
     safe_call,
     section,
-    stepper,
 )
 from state import get_context, get_token, set_context, set_flash
 
@@ -109,7 +108,6 @@ def _confirm(version_id: int, steps: list[dict[str, Any]]) -> None:
 
 
 page_shell("Mapping cột", "Đổi tên cột của file về schema chuẩn")
-stepper("mapping")
 active = dataset_context_bar()
 version_id = active.version["id"]
 

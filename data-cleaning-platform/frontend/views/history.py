@@ -10,7 +10,7 @@ import streamlit as st
 from api_client import list_dataset_versions, redo_version, restore_version, undo_version
 from components.dataset_context import dataset_context_bar
 from components.navigation import get_page
-from components.ui import empty_state, error_state, page_shell, safe_call, stepper
+from components.ui import empty_state, error_state, page_shell, safe_call
 from components.version_timeline import can_redo, can_undo, render_version_timeline
 from state import get_context, get_current_user, get_token, set_context, set_flash
 
@@ -30,7 +30,6 @@ def _change_version(label: str, func: Any, *args: Any, message: str) -> None:
 
 
 page_shell("Lịch sử phiên bản", "Xem các phiên bản, hoàn tác hoặc khôi phục")
-stepper("history")
 active = dataset_context_bar()
 dataset, current = active.dataset, active.version
 

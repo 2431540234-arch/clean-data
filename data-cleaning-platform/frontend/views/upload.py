@@ -17,7 +17,6 @@ from components.ui import (
     page_shell,
     safe_call,
     section,
-    stepper,
 )
 from state import get_context, get_token, set_context, set_flash
 
@@ -127,7 +126,6 @@ def _show_result(result: dict[str, Any]) -> None:
 
 
 page_shell("Tải lên", "Tải file CSV hoặc Excel lên để bắt đầu làm sạch")
-stepper("upload")
 
 projects, error = safe_call("Đang tải danh sách project…", list_projects, get_token())
 if error is not None:

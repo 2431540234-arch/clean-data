@@ -24,7 +24,6 @@ from components.ui import (
     metric_card,
     page_shell,
     safe_call,
-    stepper,
 )
 from state import get_token
 
@@ -135,7 +134,6 @@ def _distribution(dataset_id: int, version_id: int, columns: list[dict[str, Any]
 
 
 page_shell("Tổng quan dữ liệu", "Thống kê từng cột và điểm chất lượng của phiên bản hiện tại")
-stepper("overview")
 active = dataset_context_bar()
 version = active.version
 

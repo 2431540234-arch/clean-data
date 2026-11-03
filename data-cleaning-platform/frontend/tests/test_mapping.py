@@ -113,8 +113,9 @@ def _suggest(at, text=TARGETS_TEXT):
 
 
 def _boxes(at):
-    """Ô chọn cột đích của bảng mapping (bỏ ô chọn project/dataset của thanh ngữ cảnh)."""
-    return [s for s in at.selectbox if not str(s.key).startswith("ctx_open")]
+    """Ô chọn cột đích, bỏ các ô chọn project/dataset trong header và thanh ngữ cảnh."""
+    excluded = ("ctx_open", "header_")
+    return [s for s in at.selectbox if not str(s.key).startswith(excluded)]
 
 
 def test_page_renders_schema_form_without_suggestion(run_view, call_api):

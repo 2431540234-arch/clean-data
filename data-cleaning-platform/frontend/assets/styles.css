@@ -288,13 +288,7 @@
 }
 
 .dc-step--done .dc-step__num {
-    background: var(--c-primary);
-    border-color: transparent;
-    color: #fff;
-}
-
-.dc-step--done .dc-step__num {
-    background: #16a34a;
+    background: #166534;
     border-color: transparent;
     color: #fff;
 }
@@ -473,11 +467,72 @@
     margin: 8px 0 16px 0;
 }
 
-/* Responsive 375px: cho phép menu hàng 2 flex-wrap / không xếp thành cột dọc */
+/* Links are real Streamlit page_link widgets; state colors keep text contrast above WCAG AA. */
+[class*="st-key-dc-step-item-"][class*="-done"] [data-testid="stPageLink"] a {
+    color: #166534;
+    background: #f0fdf4;
+}
+
+[class*="st-key-dc-step-item-"][class*="-current"] [data-testid="stPageLink"] a {
+    color: #fff;
+    background: #2563eb;
+    font-weight: 600;
+}
+
+[class*="st-key-dc-step-item-"][class*="-todo"] [data-testid="stPageLink"] a {
+    color: #374151;
+    background: #f8fafc;
+}
+
+[class*="st-key-dc-nav-item-"][class*="-active"] [data-testid="stPageLink"] a {
+    color: #fff;
+    background: #2563eb;
+    font-weight: 600;
+}
+
+.st-key-dc-header-nav {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.st-key-dc-header-nav [data-testid="stHorizontalBlock"] {
+    min-width: max-content;
+}
+
+.st-key-dc-header-nav [data-testid="stColumn"] {
+    flex: 1 0 auto !important;
+    min-width: 100px !important;
+}
+
+/* Responsive 375px: two compact header rows, with a horizontally scrollable menu and stepper. */
 @media (max-width: 640px) {
     .dc-header-brand {
         flex-wrap: wrap;
     }
+
+    .st-key-dc-header-top [data-testid="stHorizontalBlock"] {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .st-key-dc-header-top [data-testid="stColumn"] {
+        flex: unset !important;
+        min-width: 0 !important;
+        width: auto !important;
+    }
+
+    .st-key-dc-stepper [data-testid="stHorizontalBlock"] {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .st-key-dc-stepper [data-testid="stColumn"] {
+        flex: unset !important;
+        min-width: 0 !important;
+        width: auto !important;
+    }
+
     .dc-user-name {
         max-width: 70px;
     }

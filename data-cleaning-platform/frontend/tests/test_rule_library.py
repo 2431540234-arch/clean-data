@@ -95,6 +95,21 @@ def test_switching_form_and_json_preserves_rule_data(run_view):
     assert at.session_state["rule_builder_name"] == "Email mới"
 
 
+def test_builder_can_add_reorder_and_delete_steps(run_view):
+    at = _open(run_view)
+    at.button(key="builder_add_step_btn").click().run()
+    first_step_id = at.session_state["rule_builder_step_ids"][0]
+    at.button(key="builder_add_step_btn").click().run()
+    second_step_id = at.session_state["rule_builder_step_ids"][1]
+
+    at.button(key=f"rule_step_down_{first_step_id}").click().run()
+    assert at.session_state["rule_builder_step_ids"] == [second_step_id, first_step_id]
+
+    at.button(key=f"rule_step_delete_{first_step_id}").click().run()
+    assert at.session_state["rule_builder_step_ids"] == [second_step_id]
+    assert len(at.session_state["rule_builder_steps"]) == 1
+
+
 def test_open_and_save_creates_a_new_rule_without_replacing_old(call_api, run_view):
     original_set = {"steps": [{"op": "trim_whitespace", "column": "email", "params": {}}]}
     original, error, db = call_api(

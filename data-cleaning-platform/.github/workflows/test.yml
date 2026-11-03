@@ -61,6 +61,9 @@ jobs:
         run: |
           alembic upgrade head
           alembic check
+          alembic downgrade 0001
+          alembic upgrade head
+          alembic check
           alembic downgrade base
 
       - name: Run tests

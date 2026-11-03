@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -25,6 +25,21 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 _base_url = make_url(settings.DATABASE_URL)
 _test_url = _base_url.set(database=_base_url.database + "_test")
 
+
+def ensure_database(url) -> None:
+    """Tạo database `url` nếu chưa có (máy mới chỉ cần Postgres chạy, khỏi tạo DB test tay)."""
+    admin = create_engine(url.set(database="postgres"), isolation_level="AUTOCOMMIT")
+    try:
+        with admin.connect() as conn:
+            exists = conn.execute(
+                text("SELECT 1 FROM pg_database WHERE datname = :name"), {"name": url.database}
+            ).scalar()
+            if not exists:
+                conn.execute(text(f'CREATE DATABASE "{url.database}"'))
+    finally:
+        admin.dispose()
+
+
 _engine = create_engine(_test_url, future=True)
 _TestSessionLocal = sessionmaker(bind=_engine, autoflush=False, autocommit=False, future=True)
 
@@ -32,6 +47,7 @@ _TestSessionLocal = sessionmaker(bind=_engine, autoflush=False, autocommit=False
 @pytest.fixture(scope="session")
 def _test_database() -> Generator[None, None, None]:
     """Tạo toàn bộ bảng trong DB test (một lần cho cả phiên), xóa sau khi xong."""
+    ensure_database(_test_url)
     Base.metadata.create_all(_engine)
     yield
     Base.metadata.drop_all(_engine)

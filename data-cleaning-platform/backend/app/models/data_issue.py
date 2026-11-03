@@ -1,9 +1,10 @@
 """Model DataIssue: lỗi dữ liệu do detector phát hiện trên một phiên bản dataset."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -43,6 +44,14 @@ class DataIssue(Base):
     current_value: Mapped[str | None] = mapped_column(Text, nullable=True)
     message: Mapped[str] = mapped_column(Text, nullable=False, default="")
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
+    # Số dòng bị ảnh hưởng (một DataIssue mô tả cả nhóm lỗi của một cột, không phải một dòng).
+    affected_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    # Chi tiết do detector sinh ra: kind, examples, các dòng đầu tiên bị ảnh hưởng, mapping sửa...
+    details: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default="{}"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

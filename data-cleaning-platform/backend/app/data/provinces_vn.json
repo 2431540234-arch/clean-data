@@ -1,25 +1,294 @@
 {
-  "_comment": "TODO: cập nhật đầy đủ 63 tỉnh/thành Việt Nam. Dưới đây chỉ là dữ liệu mẫu để minh họa cấu trúc dùng cho app.services.detectors.inconsistency.",
+  "_comment": "63 tỉnh/thành Việt Nam. Dấu, hoa/thường, dấu câu và tiền tố 'TP.'/'Tỉnh' được bỏ qua khi so khớp (app.services.detectors.inconsistency), nên 'aliases' chỉ cần các cách viết tắt/gọi khác.",
   "provinces": [
     {
       "canonical_name": "TP. Hồ Chí Minh",
-      "aliases": ["HCM", "TP.HCM", "TPHCM", "TP HCM", "Ho Chi Minh", "Sài Gòn", "Saigon"]
+      "aliases": [
+        "HCM",
+        "TP.HCM",
+        "TPHCM",
+        "TP HCM",
+        "Ho Chi Minh",
+        "Sài Gòn",
+        "Saigon"
+      ]
     },
     {
       "canonical_name": "Hà Nội",
-      "aliases": ["HN", "Ha Noi", "TP. Hà Nội", "TP Ha Noi"]
+      "aliases": [
+        "HN",
+        "Ha Noi",
+        "TP. Hà Nội",
+        "TP Ha Noi"
+      ]
     },
     {
       "canonical_name": "Đà Nẵng",
-      "aliases": ["DN", "Da Nang", "TP. Đà Nẵng"]
+      "aliases": [
+        "DN",
+        "Da Nang",
+        "TP. Đà Nẵng"
+      ]
     },
     {
       "canonical_name": "Cần Thơ",
-      "aliases": ["Can Tho", "TP. Cần Thơ"]
+      "aliases": [
+        "Can Tho",
+        "TP. Cần Thơ"
+      ]
     },
     {
       "canonical_name": "Hải Phòng",
-      "aliases": ["Hai Phong", "TP. Hải Phòng"]
+      "aliases": [
+        "Hai Phong",
+        "TP. Hải Phòng"
+      ]
+    },
+    {
+      "canonical_name": "An Giang",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Bà Rịa - Vũng Tàu",
+      "aliases": [
+        "BRVT",
+        "Vũng Tàu",
+        "Vung Tau",
+        "BR-VT"
+      ]
+    },
+    {
+      "canonical_name": "Bắc Giang",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Bắc Kạn",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Bạc Liêu",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Bắc Ninh",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Bến Tre",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Bình Định",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Bình Dương",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Bình Phước",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Bình Thuận",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Cà Mau",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Cao Bằng",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Đắk Lắk",
+      "aliases": [
+        "Dak Lak",
+        "Daklak"
+      ]
+    },
+    {
+      "canonical_name": "Đắk Nông",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Điện Biên",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Đồng Nai",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Đồng Tháp",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Gia Lai",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Hà Giang",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Hà Nam",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Hà Tĩnh",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Hải Dương",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Hậu Giang",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Hòa Bình",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Hưng Yên",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Khánh Hòa",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Kiên Giang",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Kon Tum",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Lai Châu",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Lâm Đồng",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Lạng Sơn",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Lào Cai",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Long An",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Nam Định",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Nghệ An",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Ninh Bình",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Ninh Thuận",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Phú Thọ",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Phú Yên",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Quảng Bình",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Quảng Nam",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Quảng Ngãi",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Quảng Ninh",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Quảng Trị",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Sóc Trăng",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Sơn La",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Tây Ninh",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Thái Bình",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Thái Nguyên",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Thanh Hóa",
+      "aliases": [
+        "Thanh Hoa"
+      ]
+    },
+    {
+      "canonical_name": "Thừa Thiên Huế",
+      "aliases": [
+        "Huế",
+        "Hue",
+        "TT Huế"
+      ]
+    },
+    {
+      "canonical_name": "Tiền Giang",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Trà Vinh",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Tuyên Quang",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Vĩnh Long",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Vĩnh Phúc",
+      "aliases": []
+    },
+    {
+      "canonical_name": "Yên Bái",
+      "aliases": []
     }
   ]
 }

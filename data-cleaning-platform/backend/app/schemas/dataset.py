@@ -54,3 +54,14 @@ class DatasetUploadResponse(BaseModel):
     first_version: DatasetVersionOut
     sheet_names: list[str] = []
     preview_rows: list[DatasetPreviewRow] = []
+
+
+class DatasetRowsPage(BaseModel):
+    """Một trang dòng dữ liệu của một phiên bản (ô trống là null, row_index tính từ 0 cả bảng)."""
+
+    version_id: int
+    total: int
+    offset: int
+    limit: int
+    columns: list[str]
+    rows: list[DatasetPreviewRow]

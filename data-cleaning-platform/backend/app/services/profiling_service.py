@@ -7,11 +7,13 @@ from app.core.exceptions import NotFoundError
 from app.models.data_issue import DataIssue
 from app.models.dataset import DatasetVersion
 from app.models.schema_profile import SchemaProfile
+from app.repositories import quality_repo
 from app.schemas.issue import DataIssueOut
 from app.services.detectors import run_all_detectors
 from app.services.detectors.base import DetectionIssue
 from app.services.frames import load_version_frame
 from app.services.profiling.profiler import profile_dataframe
+from app.services.quality import compute_quality_score
 
 STORED_ROW_INDICES = (
     100  # chỉ lưu vài dòng đầu bị ảnh hưởng để xem nhanh, không lưu hàng triệu chỉ số
@@ -74,6 +76,9 @@ def run_profiling(db: Session, version: DatasetVersion) -> list[SchemaProfile]:
         )
     for issue in detected:
         db.add(_to_row(version.id, issue))
+    # Đã có sẵn kết quả detector nên tính luôn điểm chất lượng, khỏi phải chạy lại sau này.
+    if quality_repo.get_for_version(db, version.id) is None:
+        quality_repo.save(db, version.id, compute_quality_score(frame, detected, types))
     db.commit()
     return get_profiles(db, version.id)
 

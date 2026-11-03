@@ -1,17 +1,24 @@
 """API upload file, xem dữ liệu, chọn sheet Excel."""
 
-from fastapi import APIRouter, Depends, Request, UploadFile
+from fastapi import APIRouter, Depends, Query, Request, UploadFile
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from app.core.config import settings
 from app.core.deps import get_current_user, get_db
-from app.core.exceptions import PayloadTooLargeError, ValidationAppError
+from app.core.exceptions import NotFoundError, PayloadTooLargeError, ValidationAppError
 from app.core.request_info import client_ip
 from app.models.user import User
 from app.repositories import dataset_repo
-from app.schemas.dataset import DatasetOut, DatasetUploadResponse, DatasetVersionOut
+from app.schemas.dataset import (
+    DatasetOut,
+    DatasetPreviewRow,
+    DatasetRowsPage,
+    DatasetUploadResponse,
+    DatasetVersionOut,
+)
 from app.services import access, dataset_service
+from app.services.frames import load_version_rows
 
 router = APIRouter(prefix="/datasets", tags=["datasets"])
 
@@ -87,6 +94,33 @@ def list_dataset_versions(
     """Lấy toàn bộ phiên bản của một dataset (theo version_number tăng dần)."""
     dataset = access.get_owned_dataset(db, current_user, dataset_id)
     return [DatasetVersionOut.model_validate(v) for v in dataset_repo.list_versions(db, dataset.id)]
+
+
+@router.get("/{dataset_id}/versions/{version_id}/rows", response_model=DatasetRowsPage)
+def list_version_rows(
+    dataset_id: int,
+    version_id: int,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> DatasetRowsPage:
+    """Xem các dòng dữ liệu của một phiên bản theo trang (offset/limit, tối đa 1000 dòng/trang)."""
+    dataset = access.get_owned_dataset(db, current_user, dataset_id)
+    version = dataset_repo.get_version_by_id(db, version_id)
+    if version is None or version.dataset_id != dataset.id:
+        raise NotFoundError("Không tìm thấy phiên bản này trong dataset.")
+    columns, total, rows = load_version_rows(version, offset, limit)
+    return DatasetRowsPage(
+        version_id=version.id,
+        total=total,
+        offset=offset,
+        limit=limit,
+        columns=columns,
+        rows=[
+            DatasetPreviewRow(row_index=offset + i, values=values) for i, values in enumerate(rows)
+        ],
+    )
 
 
 @router.post("/{dataset_id}/select-sheet", response_model=DatasetUploadResponse)

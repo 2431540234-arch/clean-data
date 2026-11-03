@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, get_db
 from app.core.request_info import client_ip
 from app.models.user import User
-from app.repositories import dataset_repo, project_repo
+from app.repositories import dataset_repo, project_repo, quality_repo
 from app.schemas.dataset import DatasetOut
 from app.schemas.project import ProjectCreate, ProjectOut, ProjectUpdate
 from app.services import access, storage
@@ -25,11 +25,14 @@ def list_projects(
 ) -> list[ProjectOut]:
     """Lấy danh sách project: admin thấy tất cả, user thường chỉ thấy project của mình."""
     projects = project_repo.list_for_user(db, current_user)
-    counts = project_repo.dataset_counts(db, [p.id for p in projects])
+    ids = [p.id for p in projects]
+    counts = project_repo.dataset_counts(db, ids)
+    scores = quality_repo.average_score_by_project(db, ids)
     result = []
     for project in projects:
         out = ProjectOut.model_validate(project)
         out.dataset_count = counts.get(project.id, 0)
+        out.average_quality_score = scores.get(project.id)
         result.append(out)
     return result
 

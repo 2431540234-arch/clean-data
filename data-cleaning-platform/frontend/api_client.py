@@ -401,3 +401,27 @@ def admin_reset_password(token: str, user_id: int) -> dict[str, Any]:
 def admin_stats(token: str) -> dict[str, Any]:
     """Thống kê tổng quan hệ thống (SystemStatsOut, chỉ admin)."""
     return request("GET", "/api/v1/admin/stats", token=token)
+
+
+def list_rule_templates(token: str, project_id: int) -> list[dict[str, Any]]:
+    """Lấy danh sách các mẫu quy tắc đã lưu trong dự án."""
+    return request("GET", f"/api/v1/rules/by-project/{project_id}", token=token)
+
+
+def create_rule_template(
+    token: str,
+    project_id: int,
+    name: str,
+    description: str | None = None,
+    rules: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Tạo mẫu quy tắc mới trong dự án."""
+    payload: dict[str, Any] = {"name": name, "rules": rules or {"steps": []}}
+    if description:
+        payload["description"] = description
+    return request("POST", f"/api/v1/rules/by-project/{project_id}", token=token, json=payload)
+
+
+def delete_rule_template(token: str, rule_id: int) -> dict[str, Any]:
+    """Xóa một mẫu quy tắc."""
+    return request("DELETE", f"/api/v1/rules/{rule_id}", token=token)

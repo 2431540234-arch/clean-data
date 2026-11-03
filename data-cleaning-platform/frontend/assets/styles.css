@@ -293,15 +293,33 @@
     color: #fff;
 }
 
+.dc-step--done .dc-step__num {
+    background: #16a34a;
+    border-color: transparent;
+    color: #fff;
+}
+
 .dc-step--current {
-    background: var(--c-primary-tint);
-    color: var(--c-primary-text);
+    background: #2563EB !important;
+    color: #ffffff !important;
     font-weight: 600;
 }
 
 .dc-step--current .dc-step__num {
-    border-color: var(--c-primary-text);
-    color: var(--c-primary-text);
+    background: #ffffff !important;
+    border-color: #ffffff !important;
+    color: #2563EB !important;
+    font-weight: 700;
+}
+
+.dc-step--todo {
+    color: #374151 !important;
+    font-weight: 500;
+}
+
+.dc-step--todo .dc-step__num {
+    color: #374151 !important;
+    border-color: #94a3b8;
 }
 
 /* Tên cột/giá trị kỹ thuật: font đơn cách, giữ màu chữ thường (inline code của Streamlit có
@@ -373,3 +391,94 @@
 [class*="st-key-sev-high-"] { border-left: 4px solid #DC2626 !important; }
 [class*="st-key-sev-medium-"] { border-left: 4px solid #D97706 !important; }
 [class*="st-key-sev-low-"] { border-left: 4px solid #94A3B8 !important; }
+
+/* ---------- Header 2 hàng & Responsive ---------- */
+.dc-header-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.dc-logo-badge {
+    background: #2563EB;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+}
+
+.dc-logo-text {
+    font-weight: 700;
+    font-size: 16px;
+    color: #1e293b;
+}
+
+.dc-breadcrumb-sep {
+    color: #94a3b8;
+}
+
+.dc-breadcrumb-area {
+    color: #64748b;
+}
+
+.dc-breadcrumb-title {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.dc-header-user-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+}
+
+.dc-user-avatar {
+    width: 28px;
+    height: 28px;
+    background: #2563EB;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+}
+
+.dc-user-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dc-user-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+    max-width: 120px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dc-header-divider {
+    height: 1px;
+    background: #e2e8f0;
+    margin: 8px 0 16px 0;
+}
+
+/* Responsive 375px: cho phép menu hàng 2 flex-wrap / không xếp thành cột dọc */
+@media (max-width: 640px) {
+    .dc-header-brand {
+        flex-wrap: wrap;
+    }
+    .dc-user-name {
+        max-width: 70px;
+    }
+}

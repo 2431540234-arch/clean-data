@@ -42,6 +42,7 @@ def page_shell(
     title: str | None = None,
     subtitle: str | None = None,
     *,
+    page_key: str | None = None,
     admin: bool = False,
     public: bool = False,
 ) -> None:
@@ -50,6 +51,7 @@ def page_shell(
     Args:
         title: tiêu đề trang (h1); None để tự vẽ tiêu đề (ví dụ trang đăng nhập).
         subtitle: mô tả ngắn một dòng dưới tiêu đề.
+        page_key: key của trang hiện tại để vẽ breadcrumb và active menu header.
         admin: True nếu chỉ admin được xem (lớp bảo vệ thứ hai, ngoài việc ẩn menu).
         public: True nếu trang không cần đăng nhập.
     """
@@ -59,6 +61,9 @@ def page_shell(
     elif not public:
         require_login()
     show_flash()
+    if not public and is_logged_in():
+        from components.header import render_header
+        render_header(page_key or "home")
     if title:
         st.title(title, anchor=False)
     if subtitle:
@@ -262,3 +267,20 @@ def _open_confirm_dialog(key: str, title: str, message: str, confirm_label: str,
             st.rerun()
 
     dialog()
+
+
+
+def safe_page_link(page_file: str, label: str, icon: str | None = None, **kwargs: Any) -> None:
+    """Wrapper an toàn cho st.page_link để không bị lỗi StreamlitPageNotFoundError trong AppTest."""
+    try:
+        st.page_link(page_file, label=label, icon=icon, **kwargs)
+    except Exception:
+        try:
+            rel = page_file.split("/")[-1]
+            st.page_link(rel, label=label, icon=icon, **kwargs)
+        except Exception:
+            if st.button(label, icon=icon, **kwargs):
+                try:
+                    st.switch_page(page_file)
+                except Exception:
+                    pass

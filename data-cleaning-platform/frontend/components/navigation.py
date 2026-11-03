@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import streamlit as st
 
 PRODUCT_NAME = "Data Cleaning Platform"
-PRODUCT_SHORT_NAME = "DataClean"  # TODO: đổi nếu chốt tên ngắn khác (hiện dùng ở sidebar/logo)
+PRODUCT_SHORT_NAME = "DataClean"
 PRODUCT_TAGLINE = "Nền tảng làm sạch dữ liệu Excel/CSV có AI gợi ý chuẩn hóa"
 
 
@@ -32,7 +32,7 @@ PAGES: tuple[PageDef, ...] = (
     PageDef("login", "views/login.py", "Đăng nhập", "login", "dang-nhap", None, default=True),
     PageDef("home", "views/home.py", "Trang chủ", "home", "", GROUP_OVERVIEW, default=True),
     PageDef(
-        "dashboard", "views/dashboard.py", "Dashboard", "dashboard", "dashboard", GROUP_OVERVIEW
+        "dashboard", "views/dashboard.py", "Dự án", "dashboard", "dashboard", GROUP_OVERVIEW
     ),
     PageDef("upload", "views/upload.py", "Tải lên", "upload_file", "tai-len", GROUP_FLOW),
     PageDef(
@@ -47,9 +47,17 @@ PAGES: tuple[PageDef, ...] = (
     PageDef(
         "suggestions",
         "views/suggestions.py",
-        "Gợi ý làm sạch",
+        "Làm sạch dữ liệu",
         "auto_fix_high",
-        "goi-y-lam-sach",
+        "lam-sach-du-lieu",
+        GROUP_FLOW,
+    ),
+    PageDef(
+        "rule_library",
+        "views/rule_library.py",
+        "Thư viện quy tắc",
+        "library_books",
+        "thu-vien-quy-tac",
         GROUP_FLOW,
     ),
     PageDef(
@@ -92,8 +100,7 @@ PAGES: tuple[PageDef, ...] = (
     ),
 )
 
-# Thứ tự các bước trong luồng làm sạch (theo phụ thuộc của backend: có profiling mới sinh
-# được gợi ý; mapping chỉ cần version; đổi tên cột đi qua rule rename_column nên làm trước).
+# Thứ tự các bước trong luồng làm sạch
 FLOW_KEYS: tuple[str, ...] = (
     "upload",
     "overview",
@@ -101,6 +108,17 @@ FLOW_KEYS: tuple[str, ...] = (
     "suggestions",
     "history",
     "export",
+)
+
+# Danh sách các mục trên menu ngang Hàng 2 của Header wireframe:
+# Trang chủ · Dự án · Làm sạch dữ liệu · Thư viện quy tắc · Nhật ký · Tài khoản · Quản trị (Admin)
+HEADER_NAV_KEYS: tuple[str, ...] = (
+    "home",
+    "dashboard",
+    "suggestions",
+    "rule_library",
+    "audit",
+    "account",
 )
 
 _BY_KEY = {page.key: page for page in PAGES}

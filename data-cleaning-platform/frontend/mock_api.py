@@ -1231,3 +1231,40 @@ def _admin_stats(call: Call) -> dict[str, Any]:
         "total_ai_calls": state["ai_calls"],
         "average_quality_score": round(sum(scores) / len(scores), 1) if scores else 0.0,
     }
+
+
+
+@route("GET", r"/rules/by-project/(\d+)")
+def _mock_list_rule_templates(call: Call) -> list[dict[str, Any]]:
+    project_id = int(call.args[0])
+    return [r for r in db().get("rules", []) if r.get("project_id") == project_id]
+
+
+@route("POST", r"/rules/by-project/(\d+)")
+def _mock_create_rule_template(call: Call) -> dict[str, Any]:
+    project_id = int(call.args[0])
+    body = call.json
+    state = db()
+    if "rules" not in state:
+        state["rules"] = []
+    rule_id = state.get("next_rule_id", 1)
+    state["next_rule_id"] = rule_id + 1
+    new_rule = {
+        "id": rule_id,
+        "project_id": project_id,
+        "name": body.get("name", "Quy tắc"),
+        "description": body.get("description"),
+        "rules": body.get("rules", {"steps": []}),
+        "created_at": _now(),
+    }
+    state["rules"].append(new_rule)
+    return new_rule
+
+
+@route("DELETE", r"/rules/(\d+)")
+def _mock_delete_rule_template(call: Call) -> dict[str, str]:
+    rule_id = int(call.args[0])
+    state = db()
+    rules = state.get("rules", [])
+    state["rules"] = [r for r in rules if r.get("id") != rule_id]
+    return {"message": "Đã xóa quy tắc."}

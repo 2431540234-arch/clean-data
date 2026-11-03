@@ -413,10 +413,10 @@ def create_rule_template(
     project_id: int,
     name: str,
     description: str | None = None,
-    rules: dict[str, Any] | None = None,
+    rule_set: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Tạo mẫu quy tắc mới trong dự án."""
-    payload: dict[str, Any] = {"name": name, "rules": rules or {"steps": []}}
+    payload: dict[str, Any] = {"name": name, "rule_set": rule_set or {"steps": []}}
     if description:
         payload["description"] = description
     return request("POST", f"/api/v1/rules/by-project/{project_id}", token=token, json=payload)

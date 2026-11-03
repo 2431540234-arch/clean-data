@@ -1233,7 +1233,6 @@ def _admin_stats(call: Call) -> dict[str, Any]:
     }
 
 
-
 @route("GET", r"/rules/by-project/(\d+)")
 def _mock_list_rule_templates(call: Call) -> list[dict[str, Any]]:
     project_id = int(call.args[0])
@@ -1249,13 +1248,21 @@ def _mock_create_rule_template(call: Call) -> dict[str, Any]:
         state["rules"] = []
     rule_id = state.get("next_rule_id", 1)
     state["next_rule_id"] = rule_id + 1
+    created_at = _now()
+    rule_set = body.get("rule_set", {"steps": []})
     new_rule = {
         "id": rule_id,
         "project_id": project_id,
         "name": body.get("name", "Quy tắc"),
         "description": body.get("description"),
-        "rules": body.get("rules", {"steps": []}),
-        "created_at": _now(),
+        "rule_set": rule_set,
+        "rule_type": "ruleset",
+        "target_column": None,
+        "params": rule_set,
+        "is_active": True,
+        "created_by": (call.user or {}).get("id"),
+        "created_at": created_at,
+        "updated_at": created_at,
     }
     state["rules"].append(new_rule)
     return new_rule

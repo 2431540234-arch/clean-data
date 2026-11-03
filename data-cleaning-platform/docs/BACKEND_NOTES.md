@@ -98,3 +98,33 @@ nguyên chữ (số 0 đầu của số điện thoại không bị mất).
 **Thiết kế chính.** Mọi chỉ số mới đều "ẩn khi thiếu": nếu backend chưa trả điểm trung bình thì thẻ không hiện, nếu lấy danh sách lỗi thất bại thì trang vẫn chạy với cảnh báo nhỏ. Sau khi đổi mật khẩu, giao diện nhận `access_token` mới do backend trả về, nên người dùng ở lại trang và thấy thông báo thành công thay vì bị đăng xuất. Mã nhật ký mới đều có nhãn tiếng Việt, mã chưa có nhãn vẫn hiện nguyên văn. Dữ liệu giả (mock) được cập nhật để hành vi khớp backend thật, nên toàn bộ test giao diện vẫn chạy được không cần backend.
 
 **Vì sao.** Giao diện không tự suy diễn: mọi số liệu lấy từ API nên demo thật và demo mock cho cùng kết quả. Việc backend thu hồi token sau khi đổi mật khẩu là yêu cầu bảo mật, nên giao diện phải nhận token mới để không làm hỏng trải nghiệm.
+
+## Khác biệt mock và backend thật (kết quả chạy demo đầy đủ ngày 04/11/2026)
+
+Chạy cùng file `khach_hang_ban.csv` ở hai chế độ cho thấy luồng và hình dạng dữ liệu giống nhau, còn khác ở các điểm sau:
+
+| Điểm | Mock (`FRONTEND_MOCK=1`) | Backend thật |
+|---|---|---|
+| Số gợi ý trên `khach_hang_ban.csv` | 8 (có 2 gợi ý "AI" giả) | 10, tất cả nguồn "Quy tắc" vì chưa có khóa AI |
+| Điểm chất lượng ban đầu | 90,7 | 90,5 (đếm 43 ô không nhất quán thay vì 17; ngưỡng outlier IQR 1,5 thay vì 3) |
+| Danh sách lỗi | suy ra từ gợi ý, 1 gợi ý một lỗi | 8 detector độc lập, 13 nhóm lỗi, có ví dụ và số dòng thật; có thêm lỗi chưa có gợi ý tự động (thiếu email/SĐT/ngày, email sai cú pháp...) |
+| Tên tỉnh/thành | 5 tỉnh mẫu | đủ 63 tỉnh/thành, tự nhận cả "TP." và không dấu |
+| Số dòng bị ảnh hưởng khi xem trước | tính trên mẫu | tính trên toàn bộ dữ liệu (bảng ≤ 200.000 dòng) |
+| File Excel xuất ra | 2 sheet | 3 sheet (thêm "Lỗi đã phát hiện"), ô văn bản luôn là chuỗi, CSV chống chèn công thức |
+| `total_ai_calls` | đếm số lần bấm "Sinh gợi ý" | đếm số lần gọi AI thật (0 khi không có khóa) |
+| Đăng nhập | không giới hạn, không ghi nhật ký | chặn sau 5 lần sai (429); ghi `auth.login` / `auth.login_failed` |
+| Đổi mật khẩu | token cũ vẫn dùng được | token cũ bị vô hiệu, frontend nhận token mới |
+| Mapping `Email liên hệ` → `email` | không khớp (None) | khớp nhờ quy tắc "chứa đủ các từ của cột chuẩn" |
+| Điểm TB của project trên Dashboard | tính ngay | chỉ khi phiên bản hiện tại đã được phân tích hoặc xem điểm |
+| File lạ, quá lớn, sai loại | báo lỗi chung | kiểm tra chữ ký file, 413 khi quá `MAX_UPLOAD_MB`, giới hạn dòng/cột |
+
+## Cải thiện sau
+
+- **403 hay 404:** hiện tài nguyên của người khác trả 403 ("không có quyền"), nên người ngoài biết được ID đó có tồn tại. Có thể đổi thành 404 cho mọi trường hợp không phải của mình.
+- **Kiểm thử AI với khóa thật:** AI mới được kiểm thử bằng client giả; cần thử một lần với khóa Anthropic thật (đặt `ANTHROPIC_API_KEY`) và xem lại prompt.
+- **Xử lý nền cho file rất lớn:** upload, profiling và áp dụng rule chạy đồng bộ trong request (giới hạn 50 MB, 1.000.000 dòng); file lớn hơn nên chuyển sang tác vụ nền (`workers/tasks.py` còn là khung).
+- **Lưu mapping và schema chuẩn của project:** endpoint #4, #5 (`column_mappings`, `target-schema`) chưa làm; hiện mapping được áp dụng bằng bước `rename_column`.
+- **Dọn script cũ:** `scripts/seed_demo.py` là file khung cũ, đã được thay bằng `scripts/seed.py`; có thể xóa.
+- **Dọn file lưu trữ mồ côi:** nếu ghi DB thất bại sau khi ghi file, hệ thống đã dọn; còn trường hợp tiến trình bị tắt đột ngột giữa chừng thì cần một tác vụ quét định kỳ.
+- **Chặn đăng nhập sai nhiều tiến trình:** bộ đếm đọc từ DB nên dùng chung được, nhưng chưa có giới hạn tốc độ chung cho các API khác (nên đặt ở reverse proxy khi deploy).
+- **Deploy online:** `deploy.yml` còn là khung; cần URL công khai theo yêu cầu đề.

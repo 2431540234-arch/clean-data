@@ -1,5 +1,34 @@
 # BACKEND_TODO: việc backend còn thiếu theo nhu cầu của frontend
 
+> **TRẠNG THÁI (cập nhật 04/11/2026): backend đã cài đặt xong.** Mọi endpoint ở mục 0 và mục 1 đều chạy
+> thật và có test (backend 327 test). Frontend chạy với backend thật (bỏ `FRONTEND_MOCK`); ảnh chụp ở
+> `docs/screenshots/real-backend/`. Các mục dưới đây giữ nguyên làm **hợp đồng** frontend–backend.
+>
+> | Mục | Trạng thái |
+> |---|---|
+> | 0. Auth cũ, `/health` | ✅ (đã nâng cấp: chặn dò mật khẩu 429, nhật ký đăng nhập, email không phân biệt hoa/thường) |
+> | 1.1 – 1.11 Auth, Projects, Datasets, Profiling, Mapping, Suggestions, Preview/Versions, Quality/Export, Audit, Admin, Rules | ✅ đã cài đặt |
+> | 2 #1 `GET /projects/{id}/datasets` | ✅ |
+> | 2 #2 `GET /profiling/{version_id}/issues` | ✅ (kèm `affected_count`, `examples`, `kind`) |
+> | 2 #3 `GET /datasets/{id}/versions/{vid}/rows?offset&limit` | ✅ (tối đa 1000 dòng/trang) |
+> | 2 #4 lưu/xác nhận mapping vào `column_mappings` | ⏸ hoãn (frontend tiếp tục dùng bước `rename_column`) |
+> | 2 #5 nguồn schema chuẩn của project | ⏸ hoãn (người dùng tự nhập danh sách cột đích) |
+> | 2 #6 `GET /projects` kèm `dataset_count`, `average_quality_score` | ✅ (điểm TB chỉ tính phiên bản hiện tại đã có báo cáo, thiếu thì `null`) |
+>
+> **Quyết định đã chốt khi cài đặt** (khác hoặc cụ thể hơn các ghi chú gốc bên dưới):
+> - `POST /admin/users/{id}/reset-password` trả `new_password` (mật khẩu tạm ngẫu nhiên, hiện một lần, không ghi log).
+> - `POST /auth/change-password` trả thêm `access_token` mới; mọi token cũ bị vô hiệu (`users.password_changed_at`).
+> - Điểm chất lượng: `overall_score` 0..100, bốn thành phần 0..1 (xem `docs/quality_score.md`).
+> - Không có khóa AI thì gợi ý chạy bằng quy tắc (nguồn `rule_engine`); có khóa thì thêm gợi ý nguồn `ai`.
+> - `POST /preview`: `affected_row_count` đếm trên toàn bộ dữ liệu khi bảng ≤ 200.000 dòng, ngược lại trên mẫu.
+> - Đăng nhập sai quá 5 lần/15 phút (email + IP) → 429; thêm trần theo IP.
+> - Tài nguyên của người khác trả 403 (chưa đổi sang 404; xem "Cải thiện sau").
+> - Mã nhật ký mới: `auth.login`, `auth.login_failed`, `auth.register`, `suggestion.generate`,
+>   `dataset.select_sheet`, `rule.create`, `rule.delete` (frontend đã có nhãn tiếng Việt).
+>
+> **Khác biệt còn lại giữa mock và backend thật:** xem `docs/BACKEND_NOTES.md`, mục "Khác biệt mock và backend thật".
+
+
 Tài liệu này do phần frontend lập, dùng để làm backend tiếp theo. Nội dung gồm:
 
 1. **Endpoint đã khai báo nhưng chưa cài đặt** (`raise NotImplementedError`, trả HTTP 500).
@@ -22,7 +51,7 @@ Schema tham chiếu `backend/app/schemas/*.py`. Lỗi trả dạng `{"detail": "
 | GET | `/auth/me` | -> `UserOut` |
 | GET | `/health` | `{"status":"ok"}` |
 
-## 1. Endpoint đã khai báo, chưa cài đặt (`NotImplementedError`)
+## 1. Endpoint đã khai báo, chưa cài đặt (`NotImplementedError`) — ✅ ĐÃ CÀI ĐẶT XONG
 
 ### 1.1 Auth
 
@@ -145,7 +174,7 @@ Hợp đồng frontend (trang Quản trị người dùng và Thống kê) dựa
 Frontend giai đoạn này **chưa dùng** `/rules/*`; còn khai báo, chưa cài đặt:
 `GET|POST /rules/by-project/{project_id}`, `DELETE /rules/{rule_id}`.
 
-## 2. Endpoint frontend cần nhưng backend CHƯA CÓ
+## 2. Endpoint frontend cần nhưng backend CHƯA CÓ — #1, #2, #3, #6 ✅ đã làm; #4, #5 hoãn
 
 | # | Đề xuất | Lý do / frontend dùng ở | Tạm thời frontend làm gì |
 |---|---|---|---|

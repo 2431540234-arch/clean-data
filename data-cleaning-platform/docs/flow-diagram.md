@@ -444,24 +444,25 @@ flowchart LR
 
 ## 6. Trạng thái cài đặt
 
-Đối chiếu với mã nguồn (cập nhật 14/10/2026). Ký hiệu: ✅ đã chạy được · 🚧 mới là khung (hàm còn `NotImplementedError`).
+Đối chiếu với mã nguồn (cập nhật 04/11/2026). Ký hiệu: ✅ đã chạy được và có test · 🚧 chưa làm.
 
 | Thành phần | Trạng thái |
 |---|---|
-| Hạ tầng: Docker Compose (3 service healthy), healthcheck, `/health`, Swagger `/docs` | ✅ |
-| CI `test.yml` (ruff, black, kiểm tra migration, pytest) | ✅ |
+| Hạ tầng: Docker Compose, healthcheck, `/health`, Swagger `/docs` | ✅ |
+| CI `test.yml` (ruff, black, `alembic upgrade/check/downgrade`, pytest backend; ruff + pytest frontend) | ✅ |
 | CI `deploy.yml` | 🚧 khung TODO |
-| Database: 16 bảng, migration `0001`, `alembic check` sạch | ✅ |
+| Database: 16 bảng, migration `0001` + `0003` + `0004`, `alembic check` sạch, test migration trên DB trống | ✅ |
 | Model SQLAlchemy, schema Pydantic, DSL `RuleSet` + validator rule | ✅ |
-| Auth: đăng ký, đăng nhập, `GET /auth/me`, JWT, bcrypt, `require_admin`, `ensure_can_access_project` | ✅ |
-| Đổi mật khẩu (`POST /auth/change-password`) | 🚧 |
-| Rule Engine lõi (`apply_rules`, `dry_run`, registry) và op `trim_whitespace` | ✅ |
-| Các op còn lại (`change_case`, `replace_values`, `standardize_*`, `cast_type`, `fill_missing`, `drop_*`, `flag_outliers`, `rename_column`) | 🚧 |
-| Ingestion (đọc CSV/Excel, dò encoding/delimiter/header), profiling, 8 detector | 🚧 |
-| AI: client, prompt, suggester, explainer, mapper, masking | 🚧 (chỉ `validator.py` đã xong) |
-| Mapping cột tầng 1 (rapidfuzz), preview, versioning (apply/undo/redo/restore) | 🚧 |
-| Quality score (mới có trọng số), export CSV/Excel, report | 🚧 |
-| Repositories: `user_repo` ✅; `project_repo`, `dataset_repo`, `suggestion_repo`, `audit_repo` | 🚧 |
-| API: auth (trừ đổi mật khẩu) ✅; projects, datasets, profiling, suggestions, mapping, preview, versions, rules, quality, export, audit, admin | 🚧 |
-| Storage S3 (`save/load Parquet`), worker nền | 🚧 |
-| Frontend Streamlit: trang Đăng nhập ✅; các trang còn lại chỉ có tiêu đề + ghi chú TODO | 🚧 |
+| Hạ tầng dùng chung: lưu trữ local/S3, kiểm tra quyền sở hữu (`services/access`), xử lý lỗi, cấu hình an toàn | ✅ |
+| Auth: đăng ký, đăng nhập (chặn dò mật khẩu 429), đổi mật khẩu, thu hồi token, `require_admin` | ✅ |
+| Ingestion (CSV/Excel, dò encoding/delimiter/dòng tiêu đề, kiểm tra loại file, giới hạn kích thước) | ✅ |
+| Profiling + 8 detector (thiếu, trùng, outlier, ngày, SĐT, email, khoảng trắng/hoa thường, biến thể giá trị) | ✅ |
+| Mapping cột: tầng 1 (từ điển + rapidfuzz), tầng 2 bằng AI khi có khóa | ✅ |
+| Gợi ý làm sạch: theo quy tắc; AI tùy chọn (che dữ liệu cá nhân, kiểm tra JSON, dự phòng về quy tắc) | ✅ |
+| Rule Engine: đủ 13 op, preview (diff từng ô), apply / undo / redo / restore, rule template | ✅ |
+| Điểm chất lượng (4 tiêu chí), xuất CSV/Excel (chống chèn công thức), xem dòng theo trang | ✅ |
+| API: projects, datasets, profiling, suggestions, mapping, preview, versions, rules, quality, export, audit, admin | ✅ (toàn bộ) |
+| Audit log: mọi thao tác ghi dữ liệu để lại một dòng cùng giao dịch | ✅ |
+| Frontend Streamlit: 12 trang, chạy với backend thật (và chế độ dữ liệu mẫu `FRONTEND_MOCK=1`) | ✅ |
+| Worker nền (`workers/tasks.py`), `column_mappings` / `target-schema` (endpoint #4, #5 chưa làm) | 🚧 |
+| Deploy online có URL công khai | 🚧 |

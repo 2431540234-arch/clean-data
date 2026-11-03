@@ -2,7 +2,7 @@
 
 Nền tảng web làm sạch dữ liệu Excel/CSV có AI gợi ý chuẩn hóa. Người dùng upload file,
 hệ thống phân tích schema, phát hiện lỗi (trùng lặp, thiếu dữ liệu, outlier, sai định dạng
-ngày/số điện thoại/email), AI gợi ý rule làm sạch dạng JSON, người dùng xem preview
+ngày/số điện thoại/email), gợi ý rule làm sạch dạng JSON, người dùng xem preview
 trước/sau rồi mới xác nhận áp dụng. Hệ thống có versioning (undo/redo), audit log,
 điểm chất lượng dữ liệu (data quality score), và xuất CSV/Excel.
 
@@ -11,81 +11,133 @@ trước/sau rồi mới xác nhận áp dụng. Hệ thống có versioning (un
 
 ## Kiến trúc tổng quan
 
-- **Backend:** FastAPI + SQLAlchemy 2.0 + PostgreSQL + Alembic
-- **Frontend:** Streamlit + Plotly
-- **AI:** OpenAI / Anthropic (chỉ sinh JSON rule, có validator kiểm tra)
-- **Lưu trữ file:** S3-compatible (Supabase Storage / Cloudflare R2) qua boto3
+- **Backend:** FastAPI + SQLAlchemy 2.0 + PostgreSQL 16 + Alembic
+- **Frontend:** Streamlit + Plotly (chỉ giao diện sáng, tiếng Việt)
+- **AI (tùy chọn):** Anthropic (mặc định) hoặc OpenAI, chỉ sinh JSON rule và có validator kiểm tra.
+  Không có khóa API thì hệ thống vẫn chạy đầy đủ bằng gợi ý theo quy tắc.
+- **Lưu trữ file:** thư mục trên máy (mặc định, `backend/data/storage`) hoặc S3-compatible
+  (Supabase Storage / Cloudflare R2) khi đặt `STORAGE_ENDPOINT` và khóa
 - **Auth:** JWT, 2 quyền `admin` và `user`
 
-Chi tiết xem [docs/architecture.md](docs/architecture.md).
+Chi tiết xem [docs/architecture.md](docs/architecture.md) và
+[docs/flow-diagram.md](docs/flow-diagram.md).
 
-## Chạy cơ sở dữ liệu bằng Docker (cần cho backend và test)
+## Chạy toàn bộ hệ thống trên máy mới
 
-Cần Docker Desktop đang chạy. Postgres được định nghĩa sẵn trong `docker-compose.yml`:
+Cần: **Git**, **Python 3.11**, **Docker Desktop** (chỉ để chạy PostgreSQL). Các lệnh dưới đây chạy từ
+thư mục `data-cleaning-platform/`. Trên Windows dùng PowerShell; chỗ khác biệt được ghi chú.
+
+### Bước 1. Lấy mã và tạo file môi trường
 
 ```bash
-cp .env.example .env                  # lần đầu; đổi POSTGRES_PORT nếu 5432 đã bị chiếm
-docker compose up -d postgres         # chạy Postgres 16 (tự tạo cả DB test data_cleaning_test)
-docker compose ps                     # chờ trạng thái "healthy"
-
-cd backend
-alembic upgrade head                  # tạo bảng
-python scripts/seed.py                # (tùy chọn) 2 tài khoản demo, KHÔNG chạy ở production
-pytest                                # test backend
-uvicorn app.main:app --reload         # chạy API tại http://localhost:8000
+git clone <địa-chỉ-repo> && cd <repo>/data-cleaning-platform
+cp .env.example .env            # Windows: Copy-Item .env.example .env
 ```
 
-Dừng DB: `docker compose stop postgres`. Xóa cả dữ liệu: `docker compose down -v`.
-Tài khoản demo: `admin@example.com` / `Admin123!` và `user@example.com` / `User12345`.
-Dữ liệu dataset lưu ở `backend/data/storage` (không commit); đặt `STORAGE_ENDPOINT` + khóa S3 để dùng S3.
+Mở `.env` và kiểm tra: `DATABASE_URL` (cổng phải khớp `POSTGRES_PORT`), `JWT_SECRET` (đổi thành chuỗi
+ngẫu nhiên nếu không phải máy thử). Các khóa AI để trống nếu chưa có.
 
-## Cài đặt & chạy bằng Docker Compose (khuyến nghị)
-
-1. Sao chép file môi trường mẫu và điền giá trị thật:
-
-   ```bash
-   cp .env.example .env
-   ```
-
-2. Khởi động toàn bộ hệ thống (Postgres + Backend + Frontend):
-
-   ```bash
-   docker compose up -d --build
-   ```
-
-3. Kiểm tra backend đã chạy:
-
-   ```bash
-   curl http://localhost:8000/health
-   # => {"status": "ok"}
-   ```
-
-4. Tạo tài khoản admin đầu tiên:
-
-   ```bash
-   docker compose exec backend python scripts/create_admin.py --email admin@example.com --password Admin123!
-   ```
-
-5. Mở frontend tại <http://localhost:8501>, backend docs (Swagger) tại
-   <http://localhost:8000/docs>.
-
-## Chạy không dùng Docker (local dev)
+### Bước 2. Chạy PostgreSQL bằng Docker
 
 ```bash
-# Backend
-cd backend
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-alembic upgrade head
-python scripts/create_admin.py --email admin@example.com --password Admin123!
-uvicorn app.main:app --reload
+docker compose up -d postgres   # chạy Postgres 16, tự tạo DB data_cleaning
+docker compose ps               # chờ trạng thái "healthy"
+```
 
-# Frontend (terminal khác)
+### Bước 3. Cài backend, tạo bảng (migration) và nạp tài khoản demo
+
+```bash
+python -m venv .venv
+# Windows: .venv\Scripts\activate        Linux/macOS: source .venv/bin/activate
+pip install -r backend/requirements.txt
+
+cd backend
+alembic upgrade head            # tạo 16 bảng
+python scripts/seed.py          # 2 tài khoản demo + dự án "Khách hàng 2026" có sẵn 1 dataset mẫu
+```
+
+`seed.py` chỉ chạy thủ công và từ chối chạy khi `ENVIRONMENT=production`. Tài khoản demo:
+
+| Vai trò | Email | Mật khẩu |
+|---|---|---|
+| Người dùng | `user@example.com` | `User12345` |
+| Quản trị viên | `admin@example.com` | `Admin123!` |
+
+### Bước 4. Chạy backend (terminal 1)
+
+```bash
+cd backend
+uvicorn app.main:app --reload   # API: http://localhost:8000, Swagger: http://localhost:8000/docs
+curl http://localhost:8000/health   # => {"status":"ok"}
+```
+
+### Bước 5. Chạy frontend (terminal 2)
+
+```bash
 cd frontend
-python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-streamlit run app.py
+streamlit run app.py            # http://localhost:8501
 ```
+
+Frontend gọi backend ở `http://localhost:8000` (đổi bằng biến môi trường `BACKEND_URL`). **Không** đặt
+`FRONTEND_MOCK` để dùng backend thật; đặt `FRONTEND_MOCK=1` nếu chỉ muốn xem giao diện bằng dữ liệu mẫu,
+không cần backend (xem [frontend/README.md](frontend/README.md)).
+
+### Cách khác: chạy cả ba dịch vụ bằng Docker Compose
+
+```bash
+docker compose up -d --build
+docker compose exec backend alembic upgrade head
+docker compose exec backend python scripts/seed.py
+```
+
+Frontend <http://localhost:8501>, backend <http://localhost:8000/docs>.
+
+### Kiểm thử
+
+```bash
+pip install -r backend/requirements-dev.txt       # pytest, ruff, black (một lần)
+cd backend && pytest            # cần Postgres đang chạy; tự tạo DB data_cleaning_test và data_cleaning_migration
+cd frontend && pytest           # không cần backend (dùng dữ liệu mẫu); cần pytest đã cài ở trên
+```
+
+## Kịch bản demo (nên mở file nào ở bước nào)
+
+Đăng nhập bằng `user@example.com` / `User12345`. File mẫu nằm trong [sample_data/](sample_data/).
+
+| Bước | Trang | Việc làm | File |
+|---|---|---|---|
+| 1 | Dashboard | Tạo project "Demo gợi ý làm sạch" | — |
+| 2 | Tải lên | Chọn project, tải file, xem 20 dòng đầu | **`khach_hang_ban.csv`** |
+| 3 | Tổng quan dữ liệu | Xem điểm chất lượng (≈ 90,5), thống kê cột, tab **Lỗi đã phát hiện** (13 nhóm lỗi), biểu đồ | `khach_hang_ban.csv` |
+| 4 | Gợi ý làm sạch | **Sinh gợi ý** (10 gợi ý, thẻ có viền màu theo mức độ), **Chấp nhận tất cả**, tab *Xem trước và áp dụng* → **Xem trước** → **Áp dụng** | `khach_hang_ban.csv` |
+| 5 | Lịch sử phiên bản | Thử hoàn tác (undo) và làm lại (redo) | — |
+| 6 | Tổng quan dữ liệu | Điểm chất lượng tăng (≈ 98,4), số dòng còn 29 | — |
+| 7 | Xuất dữ liệu | Tải CSV và Excel (3 sheet: Dữ liệu, Báo cáo chất lượng, Lỗi đã phát hiện) | — |
+| 8 | Tải lên → Mapping cột | Tải file có **tiêu đề tiếng Việt khác chuẩn**, bấm *Điền ví dụ* → *Gợi ý mapping* → *Xác nhận mapping* (6/7 cột khớp) | **`khach_hang_tieu_de_khac.csv`** |
+| 9 | Tài khoản | Đổi mật khẩu: vẫn ở lại trang, hiện thông báo thành công | — |
+| 10 | Đăng nhập admin (`admin@example.com`) | Quản trị người dùng, Thống kê hệ thống, Nhật ký (bật *Xem toàn hệ thống*) | — |
+
+Ghi chú: `khach_hang_ban.csv` (và `nhan_su_ban.xlsx`, cùng cấu trúc, có nhiều sheet) được cài sẵn các lỗi
+để minh họa gợi ý làm sạch, xem [sample_data/README.md](sample_data/README.md). `khach_hang_tieu_de_khac.csv`
+khá sạch nên **chỉ dùng cho phần Mapping cột**: nó gần như không sinh gợi ý làm sạch. Ảnh chụp từng bước nằm
+ở [docs/screenshots/real-backend/](docs/screenshots/real-backend/README.md).
+
+## Xử lý sự cố
+
+| Triệu chứng | Nguyên nhân thường gặp | Cách xử lý |
+|---|---|---|
+| Frontend báo "Không kết nối được tới máy chủ" | Backend chưa chạy, hoặc chạy ở cổng khác | Chạy `curl http://localhost:8000/health`. Nếu cổng khác, đặt `BACKEND_URL` rồi chạy lại frontend |
+| `uvicorn` báo cổng 8000 đã bị chiếm, hoặc frontend nói chuyện nhầm với một tiến trình cũ | Một server cũ còn chạy | Windows: `netstat -ano \| findstr :8000` rồi `taskkill /PID <pid> /F`. Hoặc chạy cổng khác: `uvicorn app.main:app --port 8010` và `BACKEND_URL=http://localhost:8010` cho frontend |
+| `docker compose up` báo "cannot connect to the Docker daemon" / `alembic` báo không kết nối được DB | Docker Desktop chưa chạy, hoặc Postgres chưa healthy | Mở Docker Desktop, chờ biểu tượng xanh, `docker compose up -d postgres`, `docker compose ps` đến khi `healthy` |
+| Postgres không khởi động vì cổng 5432 bị chiếm | Máy đã có Postgres khác | Đặt `POSTGRES_PORT=5434` trong `.env` và sửa cổng trong `DATABASE_URL`, rồi `docker compose up -d postgres` |
+| `alembic` báo "Can't locate revision 0002" | DB cũ tạo từ chuỗi migration trước khi gộp | `UPDATE alembic_version SET version_num = '0001';` rồi `alembic upgrade head`, hoặc xóa DB tạo lại (`docker compose down -v`) |
+| Đăng nhập báo "quá nhiều lần" (429) | Sai mật khẩu 5 lần trong 15 phút | Chờ 15 phút. Trên máy demo có thể xóa các dòng `auth.login_failed` trong bảng `audit_logs` |
+| Không thấy gợi ý của AI (nguồn luôn là "Quy tắc") | Chưa có `ANTHROPIC_API_KEY` | Đây là hành vi đúng: hệ thống chạy bằng quy tắc. Muốn dùng AI, điền khóa vào `.env` (không commit) và khởi động lại backend; đổi mô hình bằng `AI_MODEL` |
+| Gọi AI chậm hoặc lỗi | Mạng/khóa/hạn mức | Hệ thống tự dùng gợi ý theo quy tắc sau tối đa `AI_TIMEOUT_SECONDS` giây; lỗi được ghi vào bảng `ai_requests` (không ghi dữ liệu hay khóa) |
+| Tải file lên bị từ chối | Quá `MAX_UPLOAD_MB` (413), sai định dạng, hoặc quá `MAX_UPLOAD_ROWS`/`MAX_UPLOAD_COLUMNS` | Dùng CSV/XLSX/XLS hợp lệ, thu nhỏ file hoặc tăng giới hạn trong `.env` |
+| Windows báo lỗi chữ tiếng Việt khi chạy script | Console dùng bảng mã cp1252 | Đặt `PYTHONUTF8=1` trước khi chạy script |
+| Muốn xóa sạch dữ liệu demo | — | `docker compose down -v` rồi làm lại từ Bước 2 |
 
 ## Lệnh tắt (Makefile)
 
@@ -97,7 +149,7 @@ streamlit run app.py
 | `make format`        | Format code bằng black + ruff          |
 | `make migrate`       | Chạy migration Alembic                 |
 | `make create-admin`  | Tạo tài khoản admin đầu tiên           |
-| `make seed-demo`     | Nạp dữ liệu demo                       |
+| `make seed-demo`     | Nạp tài khoản và dataset demo (`scripts/seed.py`) |
 
 ## Cấu trúc thư mục
 
@@ -111,6 +163,8 @@ Xem chi tiết toàn bộ cây thư mục và vai trò từng module trong
 - [docs/permissions.md](docs/permissions.md) — Ma trận quyền admin/user
 - [docs/rule_dsl.md](docs/rule_dsl.md) — Đặc tả DSL rule làm sạch
 - [docs/quality_score.md](docs/quality_score.md) — Công thức tính điểm chất lượng
+- [docs/BACKEND_NOTES.md](docs/BACKEND_NOTES.md) — Ghi chú thiết kế từng nhóm backend (để bảo vệ đồ án)
+- [docs/BACKEND_TODO.md](docs/BACKEND_TODO.md) — Hợp đồng frontend–backend và trạng thái cài đặt
 - [docs/deployment.md](docs/deployment.md) — Hướng dẫn triển khai
 - [docs/user_guide.md](docs/user_guide.md) — Hướng dẫn sử dụng
 

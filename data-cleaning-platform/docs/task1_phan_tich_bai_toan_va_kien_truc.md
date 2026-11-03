@@ -179,17 +179,17 @@ Trình duyệt ──► Streamlit + Plotly ──HTTP/JSON──► FastAPI
 ## Slide 9 – Kết quả, demo và liên kết với sản phẩm nhóm
 
 **Ý chính**
-- Đã dựng backend, frontend, PostgreSQL chạy bằng Docker Compose, 3 service healthy.
-- Migration tạo đủ 16 bảng; `alembic check` xác nhận model khớp migration.
-- `/health` và Swagger `/docs` hoạt động; pytest 16 test đạt, ruff và black đạt.
-- GitHub Actions chạy lint, kiểm tra migration và pytest cho mỗi lần push.
-- Chưa làm: detector, AI gợi ý, giao diện đầy đủ; chưa deploy URL công khai.
+- Backend FastAPI cài đặt đủ toàn bộ API: upload, profiling + 8 detector, mapping, gợi ý làm sạch, Rule Engine 13 op, preview, apply/undo/redo, điểm chất lượng, xuất CSV/Excel, quản trị, audit.
+- Frontend Streamlit 12 trang chạy với backend thật; đã chạy trọn luồng demo trên `khach_hang_ban.csv` (điểm chất lượng 90,5 lên 98,4) và có ảnh chụp ở `docs/screenshots/real-backend/`.
+- Migration tạo đủ 16 bảng; `alembic check` sạch; có test chạy migration trên DB trống (upgrade, downgrade, upgrade lại).
+- Kiểm thử: backend 327 test, frontend 255 test đều đạt; ruff và black đạt; GitHub Actions chạy lint, migration và pytest cho mỗi lần push.
+- AI gợi ý là tùy chọn (cần khóa API): không có khóa thì chạy bằng quy tắc; chưa kiểm thử với khóa thật. Chưa làm: xử lý nền cho file rất lớn, lưu mapping vào bảng, deploy URL công khai.
 
 **Gợi ý hình (ảnh chụp màn hình thật cần chụp):** (1) `docker compose ps` với 3 service healthy; (2) trang Swagger `/docs`; (3) kết quả `pytest`; (4) URL deploy khi đã có.
 
 **Ghi chú thuyết trình:** Đây là kết quả phần hạ tầng và thiết kế em phụ trách: môi trường chạy được, database hoàn chỉnh và quy trình kiểm tra tự động. Phần chức năng chi tiết sẽ do các thành viên khác trình bày, còn sản phẩm cuối sẽ chạy online theo yêu cầu của đề.
 
-> Số liệu trên đo ngày 14/10/2026 (pytest: 16 passed, 11 skipped là test chưa viết). Trước khi nộp hãy chạy lại và cập nhật nếu thay đổi. Chỉ ghi những gì thật sự chạy được; nếu đã deploy, thêm URL công khai vào slide.
+> Số liệu trên đo ngày 04/11/2026 (pytest backend: 327 passed; frontend: 255 passed). Trước khi nộp hãy chạy lại và cập nhật nếu thay đổi. Chỉ ghi những gì thật sự chạy được; nếu đã deploy, thêm URL công khai vào slide.
 
 ---
 

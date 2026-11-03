@@ -100,11 +100,15 @@ def _to_row(version_id: int, issue: DetectionIssue) -> DataIssue:
     )
 
 
+def list_issue_rows(db: Session, version_id: int) -> list[DataIssue]:
+    """Các dòng lỗi của phiên bản: nghiêm trọng nhất trước, rồi theo số dòng giảm dần."""
+    rows = db.scalars(select(DataIssue).where(DataIssue.version_id == version_id)).all()
+    return sorted(rows, key=lambda r: (_SEVERITY_ORDER.get(r.severity, 3), -r.affected_count, r.id))
+
+
 def list_issues(db: Session, version_id: int) -> list[DataIssueOut]:
     """Lỗi của phiên bản (nghiêm trọng nhất trước, rồi theo số dòng); 404 nếu chưa profiling."""
     get_profiles_or_404(db, version_id)
-    rows = db.scalars(select(DataIssue).where(DataIssue.version_id == version_id)).all()
-    rows = sorted(rows, key=lambda r: (_SEVERITY_ORDER.get(r.severity, 3), -r.affected_count, r.id))
     return [
         DataIssueOut(
             id=r.id,
@@ -120,5 +124,5 @@ def list_issues(db: Session, version_id: int) -> list[DataIssueOut]:
             status=r.status,
             created_at=r.created_at,
         )
-        for r in rows
+        for r in list_issue_rows(db, version_id)
     ]

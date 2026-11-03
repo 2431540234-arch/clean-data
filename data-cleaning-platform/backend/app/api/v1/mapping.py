@@ -7,6 +7,7 @@ from app.core.deps import get_current_user, get_db
 from app.core.exceptions import ValidationAppError
 from app.models.user import User
 from app.services import access
+from app.services.ai.mapper import suggest_column_mapping_with_ai
 from app.services.frames import load_version_columns
 from app.services.mapping.matcher import match_columns
 
@@ -26,7 +27,7 @@ def suggest_mapping(
     """Gợi ý mapping tên cột của dataset version với target_schema.
 
     Body là một mảng JSON các tên cột chuẩn. Kết quả: mọi cột nguồn (đúng thứ tự) -> tên cột
-    chuẩn hoặc null nếu không khớp.
+    chuẩn hoặc null nếu không khớp. Tầng 1 bằng quy tắc; cột còn lại hỏi AI nếu đã cấu hình khóa.
     """
     version = access.get_owned_version(db, current_user, version_id)
     schema = [name.strip() for name in target_schema if name.strip()]
@@ -34,4 +35,11 @@ def suggest_mapping(
         raise ValidationAppError("Tên cột chuẩn không được để trống.")
     if len(schema) > MAX_TARGET_COLUMNS or any(len(n) > MAX_COLUMN_NAME_LENGTH for n in schema):
         raise ValidationAppError("Danh sách cột chuẩn quá dài.")
-    return match_columns(load_version_columns(version), schema)
+
+    result = match_columns(load_version_columns(version), schema)
+    unmatched = [column for column, target in result.items() if target is None]
+    taken = {target for target in result.values() if target is not None}
+    free_targets = [name for name in dict.fromkeys(schema) if name not in taken]
+    if unmatched and free_targets:
+        result.update(suggest_column_mapping_with_ai(db, current_user.id, unmatched, free_targets))
+    return result

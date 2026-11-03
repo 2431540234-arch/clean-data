@@ -44,6 +44,13 @@ def _isolated_storage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "STORAGE_LOCAL_DIR", str(tmp_path / "storage"))
 
 
+@pytest.fixture(autouse=True)
+def _no_real_ai(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test không bao giờ gọi AI thật (kể cả khi máy dev có khóa trong .env)."""
+    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "")
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "")
+
+
 @pytest.fixture
 def db(_test_database: None) -> Generator[Session, None, None]:
     """Cung cấp một DB session cho mỗi test, xóa sạch dữ liệu các bảng sau khi test xong."""

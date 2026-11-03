@@ -105,6 +105,17 @@ def load_bytes(storage_path: str) -> bytes:
     return target.read_bytes()
 
 
+def delete_file(storage_path: str) -> None:
+    """Xóa đúng một file (không lỗi nếu file không tồn tại); dùng để dọn file mồ côi."""
+    key = _normalize_key(storage_path)
+    if get_backend_name() == "s3":
+        _get_s3_client().delete_object(Bucket=settings.STORAGE_BUCKET, Key=key)
+        return
+    target = _local_path(key)
+    if target.is_file():
+        target.unlink()
+
+
 def delete_prefix(prefix: str) -> None:
     """Xóa mọi file có khóa bắt đầu bằng `prefix` (dùng khi xóa dataset/project)."""
     key = _normalize_key(prefix.rstrip("/"))

@@ -12,6 +12,11 @@ from typing import Any
 
 import pandas as pd
 
+
+class RuleError(ValueError):
+    """Rule không thực thi được; message là thông báo tiếng Việt hiển thị cho người dùng."""
+
+
 RuleOpFunc = Callable[[pd.DataFrame, "str | None", dict[str, Any]], tuple[pd.DataFrame, int]]
 
 OPS: dict[str, RuleOpFunc] = {}

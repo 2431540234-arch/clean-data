@@ -1,42 +1,70 @@
 """Op chuẩn hóa số điện thoại và email."""
 
+import re
 from typing import Any
 
 import pandas as pd
+import phonenumbers
 
-from app.services.rules.registry import register
+from app.services.profiling.values import is_email
+from app.services.rules.ops.common import map_cells, require_choice, require_column
+from app.services.rules.registry import RuleError, register
+
+PHONE_FORMATS = ("E164", "NATIONAL", "INTERNATIONAL")
+_PHONE_STRIP_RE = re.compile(r"[\s.\-()]")
 
 
 @register("standardize_phone")
 def standardize_phone(
     df: pd.DataFrame, column: str | None, params: dict[str, Any]
 ) -> tuple[pd.DataFrame, int]:
-    """Chuẩn hóa số điện thoại về một định dạng thống nhất.
+    """Đổi số điện thoại hợp lệ về một kiểu duy nhất.
 
     params:
-        region: mã vùng mặc định khi số không có mã quốc gia, ví dụ "VN".
-        output_format: "E164" | "NATIONAL" | "INTERNATIONAL" (dùng phonenumbers.PhoneNumberFormat).
-
-    Gợi ý cách làm: dùng thư viện `phonenumbers` để parse theo params['region'], format lại
-    theo params['output_format']; số không parse được thì giữ nguyên và không tính là affected.
+        region: mã quốc gia để hiểu số viết kiểu trong nước (mặc định "VN").
+        output_format: "E164" (+84901234567), "NATIONAL" (0901234567, chỉ chữ số) hoặc
+            "INTERNATIONAL" (+84 90 123 4567). Số không hợp lệ được giữ nguyên.
     """
-    raise NotImplementedError(
-        "TODO: dùng phonenumbers.parse/format_number để chuẩn hóa số điện thoại."
-    )
+    require_column(df, column)
+    region = str(params.get("region", "VN")).upper()
+    if region not in phonenumbers.SUPPORTED_REGIONS:
+        raise RuleError(f"Mã vùng “{region}” không được hỗ trợ.")
+    fmt = require_choice(params, "output_format", PHONE_FORMATS, "E164")
+
+    def convert(text: str) -> str:
+        try:
+            number = phonenumbers.parse(_PHONE_STRIP_RE.sub("", text), region)
+        except phonenumbers.NumberParseException:
+            return text
+        if not phonenumbers.is_valid_number(number):
+            return text
+        if fmt == "E164":
+            return phonenumbers.format_number(number, phonenumbers.PhoneNumberFormat.E164)
+        if fmt == "INTERNATIONAL":
+            return phonenumbers.format_number(number, phonenumbers.PhoneNumberFormat.INTERNATIONAL)
+        national = phonenumbers.format_number(number, phonenumbers.PhoneNumberFormat.NATIONAL)
+        return re.sub(r"\D", "", national)
+
+    return map_cells(df, column, convert)
 
 
 @register("standardize_email")
 def standardize_email(
     df: pd.DataFrame, column: str | None, params: dict[str, Any]
 ) -> tuple[pd.DataFrame, int]:
-    """Chuẩn hóa email: trim khoảng trắng, chuyển về chữ thường, validate cú pháp.
+    """Cắt khoảng trắng và đổi email về chữ thường.
 
     params:
-        drop_invalid: bool - nếu True, các email không hợp lệ sẽ bị đặt thành None
-            thay vì giữ nguyên giá trị gốc.
-
-    Gợi ý cách làm: dùng thư viện `email_validator` để kiểm tra & chuẩn hóa.
+        drop_invalid: True thì email sai cú pháp bị đặt thành ô trống; False (mặc định) thì giữ
+            nguyên giá trị sai.
     """
-    raise NotImplementedError(
-        "TODO: dùng email_validator.validate_email để chuẩn hóa/kiểm tra cú pháp email."
-    )
+    require_column(df, column)
+    drop_invalid = bool(params.get("drop_invalid", False))
+
+    def convert(text: str) -> str:
+        cleaned = text.strip().lower()
+        if is_email(cleaned):
+            return cleaned
+        return "" if drop_invalid else text
+
+    return map_cells(df, column, convert)

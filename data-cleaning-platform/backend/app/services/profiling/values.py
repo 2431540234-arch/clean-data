@@ -132,6 +132,24 @@ def parse_date(value: str) -> tuple[str, datetime] | None:
     return None
 
 
+_DAY_MONTH_YEAR_RE = re.compile(r"^(\d{1,2})(?P<sep>[/.\-])(\d{1,2})(?P=sep)(\d{4})$")
+
+
+def parse_date_with_preference(value: str, dayfirst: bool = True) -> datetime | None:
+    """Đọc ngày; ngày mơ hồ như 03/04/2020 thì dayfirst quyết định đọc ngày/tháng hay tháng/ngày."""
+    text = value.strip()
+    if not dayfirst:
+        match = _DAY_MONTH_YEAR_RE.match(text)
+        if match:
+            first, second, year = match.group(1), match.group(3), match.group(4)
+            try:
+                return datetime(int(year), int(first), int(second))
+            except ValueError:
+                pass  # tháng > 12: rơi xuống cách đọc ngày/tháng
+    parsed = parse_date(text)
+    return parsed[1] if parsed else None
+
+
 def date_format_of(value: str) -> str | None:
     """Nhãn định dạng ngày (vd. 'dd/MM/yyyy') hoặc None nếu không phải ngày hợp lệ."""
     parsed = parse_date(value)

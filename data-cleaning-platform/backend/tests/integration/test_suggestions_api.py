@@ -276,6 +276,28 @@ def test_ai_failure_falls_back_to_rules_silently(client, db, user_headers, monke
     )
 
 
+def test_ai_suggestion_with_unrunnable_params_is_dropped(client, user_headers, monkeypatch):
+    version_id = _upload(client, user_headers)
+    unrunnable = {
+        "suggestions": [
+            {
+                "issue_id": None,
+                "column": "ho_ten",
+                "explanation": "mode sai",
+                "rule": {
+                    "steps": [
+                        {"op": "change_case", "column": "ho_ten", "params": {"mode": "rainbow"}}
+                    ]
+                },
+            },
+            _ai_payload(None)["suggestions"][0],
+        ]
+    }
+    _use_ai(monkeypatch, FakeAI(data=unrunnable))
+    ai = [s for s in _generate(client, user_headers, version_id).json() if s["source"] == "ai"]
+    assert [s["target_column"] for s in ai] == ["tuoi"]
+
+
 def test_ai_garbage_output_is_ignored(client, db, user_headers, monkeypatch):
     version_id = _upload(client, user_headers)
     bad = {

@@ -6,6 +6,7 @@ của AI -> bỏ gợi ý trùng với quy tắc -> lưu. AI hỏng/không có k
 """
 
 import json
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -23,11 +24,16 @@ from app.services.ai import service as ai_service
 from app.services.ai.explainer import explain_issue
 from app.services.ai.masking import mask_sample_values
 from app.services.ai.prompts import SUGGESTION_SYSTEM_PROMPT, build_suggestion_prompt
-from app.services.ai.validator import validate_ai_suggestions
+from app.services.ai.validator import AISuggestion, validate_ai_suggestions
 from app.services.audit import log_action
 from app.services.detectors.base import DetectionIssue
+from app.services.frames import load_version_frame
+from app.services.rules.engine import dry_run
+from app.services.rules.registry import RuleError
 
+logger = logging.getLogger(__name__)
 MAX_SUMMARY_ISSUES = 40
+AI_CHECK_SAMPLE_ROWS = 1000
 _CASE_MODES = {"title": "title", "upper": "upper", "lower": "lower"}
 
 
@@ -279,6 +285,7 @@ def ai_suggestions(
         return []
     columns = {p.column_name for p in profiles}
     valid = validate_ai_suggestions(data, columns, {i.id for i in issues})
+    valid = _only_runnable(version, valid)
     return [
         ProposedSuggestion(
             source="ai",
@@ -290,6 +297,22 @@ def ai_suggestions(
         )
         for s in valid
     ]
+
+
+def _only_runnable(version: DatasetVersion, suggestions: list[AISuggestion]) -> list[AISuggestion]:
+    """Bỏ gợi ý của AI mà Rule Engine không chạy nổi (tham số sai...), thử trên một mẫu dữ liệu."""
+    if not suggestions:
+        return []
+    sample = load_version_frame(version).head(AI_CHECK_SAMPLE_ROWS)
+    runnable = []
+    for suggestion in suggestions:
+        try:
+            dry_run(sample, suggestion.rule_set)
+        except RuleError as exc:
+            logger.info("Bỏ gợi ý AI không chạy được: %s", exc)
+            continue
+        runnable.append(suggestion)
+    return runnable
 
 
 def _fingerprint(rule_set: RuleSet) -> str:

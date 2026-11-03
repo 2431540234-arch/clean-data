@@ -11,7 +11,9 @@ from app.schemas.rule import RuleSet, RuleStep
 
 # Import các module ops để chúng tự đăng ký vào registry (OPS) qua decorator @register.
 from app.services.rules import ops  # noqa: F401
-from app.services.rules.registry import get_op
+from app.services.rules.registry import RuleError, get_op
+
+MAX_STEPS = 50  # chặn RuleSet khổng lồ (do lỗi hoặc cố ý) làm treo máy chủ
 
 
 class RuleStepResult:
@@ -20,6 +22,14 @@ class RuleStepResult:
     def __init__(self, step: RuleStep, affected_rows: int) -> None:
         self.step = step
         self.affected_rows = affected_rows
+
+
+def validate_rule_set(rule_set: RuleSet) -> None:
+    """Kiểm tra RuleSet có thể thực thi: có bước, không quá nhiều bước."""
+    if not rule_set.steps:
+        raise RuleError("Không có bước nào để áp dụng.")
+    if len(rule_set.steps) > MAX_STEPS:
+        raise RuleError(f"Một lần áp dụng tối đa {MAX_STEPS} bước.")
 
 
 def apply_rules(df: pd.DataFrame, rule_set: RuleSet) -> tuple[pd.DataFrame, list[RuleStepResult]]:
@@ -31,13 +41,24 @@ def apply_rules(df: pd.DataFrame, rule_set: RuleSet) -> tuple[pd.DataFrame, list
 
     Returns:
         Tuple (DataFrame sau khi áp dụng toàn bộ rule, danh sách kết quả từng bước).
+
+    Raises:
+        RuleError: rule không thực thi được (cột không tồn tại, tham số sai...); thông báo tiếng
+            Việt, và không có thay đổi nào được giữ lại vì df gốc không bị sửa.
     """
+    validate_rule_set(rule_set)
     result_df = df
     step_results: list[RuleStepResult] = []
 
-    for step in rule_set.steps:
-        op_func = get_op(step.op)
-        result_df, affected_rows = op_func(result_df, step.column, step.params)
+    for number, step in enumerate(rule_set.steps, start=1):
+        try:
+            op_func = get_op(step.op)
+        except KeyError as exc:
+            raise RuleError(f"Bước {number}: op “{step.op}” chưa được hỗ trợ.") from exc
+        try:
+            result_df, affected_rows = op_func(result_df, step.column, step.params)
+        except RuleError as exc:
+            raise RuleError(f"Bước {number} ({step.op}): {exc}") from exc
         step_results.append(RuleStepResult(step=step, affected_rows=affected_rows))
 
     return result_df, step_results
@@ -49,3 +70,20 @@ def dry_run(df: pd.DataFrame, rule_set: RuleSet) -> tuple[pd.DataFrame, list[Rul
     Dùng cho chức năng preview (xem trước trước/sau khi chưa xác nhận áp dụng).
     """
     return apply_rules(df.copy(deep=True), rule_set)
+
+
+def changed_row_labels(before: pd.DataFrame, after: pd.DataFrame) -> set:
+    """Nhãn các dòng bị tác động: dòng bị xóa, dòng đổi giá trị ở cột có cả trước và sau, và
+    dòng được đánh dấu "True" ở cột mới (flag_outliers)."""
+    labels = set(before.index.difference(after.index))
+    kept = before.index.intersection(after.index)
+    for column in before.columns:
+        if column not in after.columns:
+            continue
+        old = before.loc[kept, column].astype(str)
+        new = after.loc[kept, column].astype(str)
+        labels.update(kept[(old != new).to_numpy()])
+    for column in after.columns.difference(before.columns):
+        flagged = after[column].astype(str) == "True"
+        labels.update(after.index[flagged.to_numpy()])
+    return labels

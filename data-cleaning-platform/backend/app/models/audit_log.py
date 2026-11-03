@@ -26,6 +26,8 @@ class AuditLog(Base):
     __table_args__ = (
         Index("ix_audit_logs_entity_type_entity_id", "entity_type", "entity_id"),
         Index("ix_audit_logs_project_id_created_at", "project_id", "created_at"),
+        # Đếm nhanh auth.login_failed trong cửa sổ thời gian (chặn đăng nhập sai) và lọc theo loại.
+        Index("ix_audit_logs_action_created_at", "action", "created_at"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

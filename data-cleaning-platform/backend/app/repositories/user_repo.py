@@ -1,6 +1,6 @@
 """Truy vấn DB cho bảng users."""
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.user import User
@@ -12,9 +12,9 @@ def get_by_id(db: Session, user_id: int) -> User | None:
 
 
 def get_by_email(db: Session, email: str) -> User | None:
-    """Lấy user theo email (dùng khi đăng nhập/đăng ký)."""
-    stmt = select(User).where(User.email == email)
-    return db.execute(stmt).scalar_one_or_none()
+    """Lấy user theo email, không phân biệt hoa/thường (dùng khi đăng nhập/đăng ký)."""
+    stmt = select(User).where(func.lower(User.email) == email.strip().lower())
+    return db.execute(stmt).scalars().first()
 
 
 def create_user(

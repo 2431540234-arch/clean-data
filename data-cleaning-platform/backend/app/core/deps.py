@@ -48,6 +48,13 @@ def get_current_user(
         raise UnauthorizedError("Người dùng không tồn tại.")
     if not user.is_active:
         raise UnauthorizedError("Tài khoản đã bị khóa.")
+    changed_at = user.password_changed_at
+    if changed_at is not None:
+        issued_at = payload.get("iat")
+        # iat tính theo giây nguyên: so với giây nguyên của lúc đổi mật khẩu để không loại nhầm
+        # token vừa cấp ngay sau đó trong cùng một giây.
+        if not isinstance(issued_at, int | float) or issued_at < int(changed_at.timestamp()):
+            raise UnauthorizedError("Phiên đăng nhập đã hết hiệu lực. Vui lòng đăng nhập lại.")
     return user
 
 

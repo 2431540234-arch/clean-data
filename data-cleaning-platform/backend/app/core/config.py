@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     # Chống dò mật khẩu: tối đa N lần đăng nhập sai trong cửa sổ M phút theo (email, IP)
     LOGIN_MAX_ATTEMPTS: int = 5
     LOGIN_WINDOW_MINUTES: int = 15
+    LOGIN_MAX_ATTEMPTS_PER_IP: int = 50  # trần chung theo IP, chặn dò nhiều email khác nhau
 
     # App
     APP_NAME: str = "Data Cleaning Platform"

@@ -3,6 +3,10 @@
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 class AppError(Exception):
     """Lỗi nghiệp vụ chung, trả về cho client kèm mã HTTP và thông báo tiếng Việt."""
@@ -48,9 +52,32 @@ class ValidationAppError(AppError):
         super().__init__(message, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
 
+class PayloadTooLargeError(AppError):
+    """Dữ liệu gửi lên vượt giới hạn cho phép (ví dụ file quá lớn)."""
+
+    def __init__(self, message: str = "Dữ liệu gửi lên quá lớn.") -> None:
+        super().__init__(message, status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
+
+
+class RateLimitError(AppError):
+    """Thao tác bị giới hạn tần suất (ví dụ đăng nhập sai quá nhiều lần)."""
+
+    def __init__(self, message: str = "Bạn thao tác quá nhanh. Vui lòng thử lại sau.") -> None:
+        super().__init__(message, status_code=status.HTTP_429_TOO_MANY_REQUESTS)
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     """Đăng ký exception handler cho FastAPI app, chuyển AppError thành JSONResponse."""
 
     @app.exception_handler(AppError)
     async def handle_app_error(request: Request, exc: AppError) -> JSONResponse:
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
+
+    @app.exception_handler(Exception)
+    async def handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
+        """Lỗi không lường trước: ghi log đầy đủ, chỉ trả thông báo chung (không lộ nội bộ)."""
+        logger.exception("Lỗi không xử lý tại %s %s", request.method, request.url.path)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": "Máy chủ gặp sự cố. Vui lòng thử lại sau."},
+        )

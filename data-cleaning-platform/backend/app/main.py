@@ -4,11 +4,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
-from app.core.config import settings
+from app.core.config import settings, validate_runtime_config
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import setup_logging
 
 setup_logging()
+
+validate_runtime_config(settings)  # chặn khởi động production với cấu hình không an toàn
 
 app = FastAPI(title=settings.APP_NAME)
 

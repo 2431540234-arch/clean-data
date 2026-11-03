@@ -26,4 +26,4 @@ create-admin:
 
 # Nạp dữ liệu demo
 seed-demo:
-	cd backend && python scripts/seed_demo.py
+	cd backend && python scripts/seed.py

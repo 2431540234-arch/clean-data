@@ -19,6 +19,26 @@ trước/sau rồi mới xác nhận áp dụng. Hệ thống có versioning (un
 
 Chi tiết xem [docs/architecture.md](docs/architecture.md).
 
+## Chạy cơ sở dữ liệu bằng Docker (cần cho backend và test)
+
+Cần Docker Desktop đang chạy. Postgres được định nghĩa sẵn trong `docker-compose.yml`:
+
+```bash
+cp .env.example .env                  # lần đầu; đổi POSTGRES_PORT nếu 5432 đã bị chiếm
+docker compose up -d postgres         # chạy Postgres 16 (tự tạo cả DB test data_cleaning_test)
+docker compose ps                     # chờ trạng thái "healthy"
+
+cd backend
+alembic upgrade head                  # tạo bảng
+python scripts/seed.py                # (tùy chọn) 2 tài khoản demo, KHÔNG chạy ở production
+pytest                                # test backend
+uvicorn app.main:app --reload         # chạy API tại http://localhost:8000
+```
+
+Dừng DB: `docker compose stop postgres`. Xóa cả dữ liệu: `docker compose down -v`.
+Tài khoản demo: `admin@example.com` / `Admin123!` và `user@example.com` / `User12345`.
+Dữ liệu dataset lưu ở `backend/data/storage` (không commit); đặt `STORAGE_ENDPOINT` + khóa S3 để dùng S3.
+
 ## Cài đặt & chạy bằng Docker Compose (khuyến nghị)
 
 1. Sao chép file môi trường mẫu và điền giá trị thật:

@@ -17,6 +17,7 @@ def log_action(
     old_value: dict[str, Any] | None = None,
     new_value: dict[str, Any] | None = None,
     ip_address: str | None = None,
+    commit: bool = True,
 ) -> AuditLog:
     """Tạo một dòng audit log mới và commit vào DB.
 
@@ -29,6 +30,8 @@ def log_action(
         old_value / new_value: trạng thái trước/sau, ví dụ {"version_number": 1} và
             {"version_number": 2, "rule": {...}}.
         ip_address: địa chỉ IP của request (nếu có).
+        commit: False để ghi log cùng transaction với thao tác chính (caller tự commit), nhờ đó
+            thao tác và nhật ký của nó thành công hoặc thất bại cùng nhau.
     """
     entry = AuditLog(
         user_id=user_id,
@@ -41,6 +44,9 @@ def log_action(
         ip_address=ip_address,
     )
     db.add(entry)
-    db.commit()
-    db.refresh(entry)
+    if commit:
+        db.commit()
+        db.refresh(entry)
+    else:
+        db.flush()
     return entry

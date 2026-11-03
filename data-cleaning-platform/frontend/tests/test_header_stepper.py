@@ -55,4 +55,5 @@ def test_header_project_switch_clears_project_scoped_context(run_view):
     assert context["project_id"] == 2
     assert context["dataset_id"] is None
     assert context["rule_queue"] == [] and context["preview"] is None
+    assert context["rule_queue_version_id"] is None
     assert context["pending_steps"] is None and context["pending_version_id"] is None

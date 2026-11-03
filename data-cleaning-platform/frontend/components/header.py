@@ -39,6 +39,7 @@ def _change_project(project_names: dict[int, str]) -> None:
         version_id=None,
         upload_result=None,
         rule_queue=[],
+        rule_queue_version_id=None,
         preview=None,
         pending_steps=None,
         pending_version_id=None,
@@ -66,7 +67,7 @@ def render_header(current_page_key: str = "home") -> None:
     # --- HÀNG 1: TOP BAR ---
     with st.container(key="dc-header-top"):
         top_col_brand, top_col_project, top_col_user, top_col_logout = st.columns(
-            [3.5, 3.5, 3.2, 1.3], gap="small", vertical_alignment="center"
+            [3.4, 3.2, 3.2, 1.7], gap="small", vertical_alignment="center"
         )
 
         with top_col_brand:

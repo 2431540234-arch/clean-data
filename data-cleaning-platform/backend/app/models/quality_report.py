@@ -16,7 +16,9 @@ if TYPE_CHECKING:
 class QualityReport(Base):
     """Báo cáo chất lượng, mỗi phiên bản dataset có tối đa một báo cáo (version_id unique).
 
-    overall_score và 4 tiêu chí thành phần đều nằm trong khoảng 0–100.
+    overall_score nằm trong khoảng 0–100; 4 tiêu chí thành phần (completeness, uniqueness, validity,
+    consistency) là tỉ lệ trong khoảng 0–1 (xem docs/quality_score.md). Ràng buộc CHECK của DB cho
+    phép tối đa 100 nên các giá trị 0–1 luôn hợp lệ.
     """
 
     __tablename__ = "quality_reports"

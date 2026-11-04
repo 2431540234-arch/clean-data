@@ -3,12 +3,21 @@
 import pandas as pd
 import streamlit as st
 
-from api_client import audit_me
+from api_client import APIError, audit_me, get_dataset, get_profiling, list_dataset_versions
 from components.dataset_summary import project_dataset_summaries
 from components.formatting import format_datetime, format_number
 from components.labels import action_label
 from components.navigation import FLOW_KEYS, PRODUCT_TAGLINE, get_page
-from components.ui import data_table, empty_state, error_state, page_shell, safe_call, section
+from components.ui import (
+    badge_html,
+    data_table,
+    empty_state,
+    error_state,
+    page_shell,
+    safe_call,
+    section,
+)
+from components.workflow_status import DOING, DONE, TODO, workflow_status
 from state import get_context, get_current_user, get_token
 
 # Mô tả giữ trong một dòng (<= ~28 ký tự) để các thẻ cao đều nhau mà không cần chiều cao cố định.
@@ -16,11 +25,52 @@ _STEP_DESCRIPTIONS = {
     "upload": "Tải file CSV/Excel lên.",
     "overview": "Thống kê cột và lỗi dữ liệu.",
     "mapping": "Đổi tên cột về schema chuẩn.",
-    "suggestions": "Duyệt gợi ý AI, xem trước.",
+    "suggestions": "Duyệt gợi ý, xem trước, áp dụng.",
     "history": "Hoàn tác, làm lại, khôi phục.",
     "export": "Tải CSV/Excel kèm báo cáo.",
 }
 _COLUMNS = 3
+_STATUS_BADGE = {DONE: "success", DOING: "primary", TODO: "neutral"}
+
+
+def _load_status(dataset_id: int | None, logs: list[dict]) -> tuple[dict[str, str], bool]:
+    """Trạng thái các bước của dataset đang chọn; (trạng thái, True nếu lấy dữ liệu bị lỗi)."""
+    if not dataset_id:
+        return workflow_status(
+            has_dataset=False, profiled=False, versions=[], exported=False
+        ), False
+    token = get_token()
+    try:
+        dataset = get_dataset(token, dataset_id)
+        versions = list_dataset_versions(token, dataset_id)
+        try:
+            get_profiling(token, dataset["current_version_id"])
+            profiled = True
+        except APIError as exc:
+            if exc.status_code != 404:  # 404 = chưa phân tích; lỗi khác là lỗi thật
+                raise
+            profiled = False
+    except APIError:
+        return workflow_status(has_dataset=False, profiled=False, versions=[], exported=False), True
+    context = get_context()
+    pending = (
+        bool(context.get("pending_steps"))
+        and context.get("pending_version_id") == (dataset["current_version_id"])
+    )
+    exported = any(
+        log["action"] == "dataset.export" and log["entity_id"] == dataset_id for log in logs
+    )
+    return (
+        workflow_status(
+            has_dataset=True,
+            profiled=profiled,
+            versions=versions,
+            exported=exported,
+            mapping_pending=pending,
+        ),
+        False,
+    )
+
 
 user = get_current_user() or {}
 name = user.get("full_name") or user.get("email") or "bạn"
@@ -90,11 +140,19 @@ else:
         st.caption("Chưa có hoạt động nào.")
 
 st.subheader("Quy trình làm sạch")
+statuses, status_failed = _load_status(
+    context.get("dataset_id"), logs if isinstance(logs, list) else []
+)
+if status_failed:
+    st.caption("Chưa lấy được trạng thái các bước; hiển thị tạm là Chưa làm.")
 for start in range(0, len(FLOW_KEYS), _COLUMNS):
     for column, key in zip(st.columns(_COLUMNS), FLOW_KEYS[start : start + _COLUMNS], strict=True):
         page = get_page(key)
         with column, st.container(border=True):
             st.markdown(f"**{FLOW_KEYS.index(key) + 1}. :material/{page.icon}: {page.title}**")
+            st.markdown(
+                badge_html(statuses[key], _STATUS_BADGE[statuses[key]]), unsafe_allow_html=True
+            )
             st.caption(_STEP_DESCRIPTIONS[key])
             if st.button("Mở", key=f"home_open_{key}", use_container_width=True):
                 st.switch_page(page.file)

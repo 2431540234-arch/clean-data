@@ -442,6 +442,14 @@
     white-space: nowrap;
 }
 
+/* Chi tiết phiên bản: nhãn và độ chênh được xuống dòng thay vì bị cắt thành "…" */
+.st-key-dc-version-kpis [data-testid="stMetricLabel"] *,
+.st-key-dc-version-kpis [data-testid="stMetricDelta"] * {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+}
+
 /* Thông tin file sau khi tải lên: số liệu nhỏ hơn để "2,0 KB" không bị cắt thành "2,0 …" */
 .st-key-dc-file-facts [data-testid="stMetricValue"] {
     font-size: 1.35rem;

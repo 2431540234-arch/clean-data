@@ -187,10 +187,12 @@ def metric_card(
     *,
     help: str | None = None,
     note: str | None = None,
+    delta: str | None = None,
+    delta_color: str = "off",
 ) -> None:
-    """Thẻ số liệu có viền; `note` là dòng chú thích nhỏ dưới giá trị."""
+    """Thẻ số liệu có viền; `note` là chú thích nhỏ, `delta` là độ chênh so với phiên bản khác."""
     with st.container(border=True):
-        st.metric(label, value, help=help)
+        st.metric(label, value, delta=delta, delta_color=delta_color, help=help)  # type: ignore[arg-type]
         if note:
             st.caption(note)
 

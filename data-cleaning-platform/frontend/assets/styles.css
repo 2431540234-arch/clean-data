@@ -140,6 +140,10 @@
     margin: var(--sp-6) 0 var(--sp-6);
 }
 
+.dc-brand--left {
+    text-align: left;
+}
+
 .dc-brand__mark {
     width: 2.75rem;
     height: 2.75rem;

@@ -1,9 +1,11 @@
-# Đối chiếu wireframe — Bước 2
+# Đối chiếu wireframe — Bước 2 và Bước 3
 
 Ảnh `compare-*.png` đặt giao diện ứng dụng cạnh wireframe theo cùng kích thước viewport. Ảnh app là ảnh chụp giao diện Streamlit; ảnh wireframe desktop là tham chiếu từ [HTML gốc](../../design/wireframe-dataclean.html), với bản PDF tại [wireframe-dataclean.pdf](../../design/wireframe-dataclean.pdf).
 
 | Trang / viewport | Khác biệt quan sát được | Lý do |
 |---|---|---|
+| Đăng nhập · 1440×900 | Bố cục hai cột và card đăng nhập bám sát wireframe; ứng dụng không điền sẵn email hoặc hiện lỗi đăng nhập mẫu. Ảnh: [`compare-login-1440.png`](./compare-login-1440.png). | Không dùng dữ liệu minh họa trong wireframe như dữ liệu thật; banner dữ liệu mẫu chỉ hiện khi bật chế độ mock. |
+| Đăng nhập · 375×812 | Ứng dụng xếp phần giới thiệu phía trên form, không tràn ngang; ảnh: [`compare-login-375.png`](./compare-login-375.png). Wireframe bên phải là crop từ bản desktop. | Wireframe không có biến thể mobile; crop chỉ thể hiện phần desktop nằm trong vùng 375px, không dùng làm chuẩn responsive. |
 | Header admin · 1440×1000 | Đủ 7 mục menu trên cùng một hàng, không cuộn; ảnh chụp: [`admin-menu-1440.png`](./admin-menu-1440.png). | Menu dùng hết chiều rộng khả dụng ở desktop; nhãn không bị cắt. |
 | Header admin · 1280×1000 | Đủ 7 mục menu trên cùng một hàng, không cuộn. | Cùng bố cục desktop; chỉ bật cuộn ngang tại viewport rộng tối đa 768px. |
 | Header admin · 375×812 | Menu cuộn ngang, không xếp thành danh sách dọc; ảnh chụp: [`admin-menu-375.png`](./admin-menu-375.png). | Giữ chiều rộng tối thiểu cho từng mục ở màn hình hẹp; nội dung trang không tràn ngang. |
@@ -14,9 +16,9 @@
 
 ## Ảnh nguồn
 
-- Ứng dụng: `cleaning-app-1440.png`, `cleaning-app-375.png`, `rule-library-app-1440.png`, `rule-library-app-375.png`.
-- Wireframe desktop: `wireframe-cleaning-1440.png`, `wireframe-rule-library-1440.png`.
-- Tham chiếu crop 375px: `wireframe-cleaning-375.png`, `wireframe-rule-library-375.png`.
-- Ảnh ghép đối chiếu: `compare-cleaning-1440.png`, `compare-cleaning-375.png`, `compare-rule-library-1440.png`, `compare-rule-library-375.png`.
+- Ứng dụng: `login-1440.png`, `login-375.png`, `cleaning-app-1440.png`, `cleaning-app-375.png`, `rule-library-app-1440.png`, `rule-library-app-375.png`.
+- Wireframe desktop: `wireframe-login-1440.png`, `wireframe-cleaning-1440.png`, `wireframe-rule-library-1440.png`.
+- Tham chiếu crop 375px: `wireframe-login-375.png`, `wireframe-cleaning-375.png`, `wireframe-rule-library-375.png`.
+- Ảnh ghép đối chiếu: `compare-login-1440.png`, `compare-login-375.png`, `compare-cleaning-1440.png`, `compare-cleaning-375.png`, `compare-rule-library-1440.png`, `compare-rule-library-375.png`.
 
 Các con số xuất hiện trong wireframe là dữ liệu minh họa và không được dùng làm kết quả kiểm thử hay số liệu thực của ứng dụng.

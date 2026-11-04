@@ -163,7 +163,7 @@ Timeout của frontend cho các thao tác này đã nới (phân tích 600 giây
 ## Cải thiện sau
 
 - **403 hay 404:** hiện tài nguyên của người khác trả 403 ("không có quyền"), nên người ngoài biết được ID đó có tồn tại. Có thể đổi thành 404 cho mọi trường hợp không phải của mình.
-- **Kiểm thử AI với khóa thật:** AI mới được kiểm thử bằng client giả; cần thử một lần với khóa Anthropic thật (đặt `ANTHROPIC_API_KEY`) và xem lại prompt.
+- **Kiểm thử AI với khóa thật:** đã kiểm thử bằng client giả và cơ chế dự phòng thật (khóa Anthropic sai, backend tạm: cả 3 lần sinh gợi ý rơi về quy tắc, không traceback, `ai_requests` ghi `status=error` kèm `AuthenticationError`, không chứa dữ liệu thô hay khóa; "Lượt gọi AI" đếm đúng). **Chưa có lần gọi AI thành công** vì chưa nạp credit API, nên prompt chưa được xem lại với câu trả lời thật.
 - **Xử lý nền cho file rất lớn:** upload, profiling và áp dụng rule chạy đồng bộ trong request. CSV tới 200 MB được tải theo từng phần (xem mục "CSV lớn theo từng phần" bên dưới) nhưng phân tích và xuất vẫn đồng bộ (đo ở 198 MiB / 840.000 dòng: phân tích ~80 giây, xuất Excel ~140 giây, RAM đỉnh ~3,4 GiB). Muốn vượt 200 MB hoặc tránh request kéo dài thì chuyển sang tác vụ nền (`workers/tasks.py` còn là khung).
 - **Excel lớn hơn 50 MB:** chưa hỗ trợ (openpyxl phải nạp cả file); hãy lưu thành CSV.
 - **Lưu mapping và schema chuẩn của project:** endpoint #4, #5 (`column_mappings`, `target-schema`) chưa làm; hiện mapping được áp dụng bằng bước `rename_column`.

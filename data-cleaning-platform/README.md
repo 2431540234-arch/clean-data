@@ -182,11 +182,26 @@ khá sạch nên **chỉ dùng cho phần Mapping cột**: nó gần như không
 - **CI** (`../.github/workflows/test.yml`, ở thư mục gốc repo): chạy mỗi lần push/PR, gồm job `backend` (ruff, black, kiểm tra migration, pytest, có Postgres) và job `frontend` (ruff check, ruff format --check, pytest).
 - **Deploy**: `.github/workflows/deploy.yml` (trong thư mục này) **chưa được kích hoạt**: nó nằm ngoài `.github/workflows/` của thư mục gốc repo nên GitHub không chạy, và nội dung mới chỉ là các bước `TODO`. Muốn dùng: chuyển file lên `../.github/workflows/`, viết các bước build/push image (GHCR hoặc Docker Hub) và lệnh deploy thật (SSH hoặc API của nền tảng), rồi khai báo secret tương ứng trong GitHub Settings.
 
+## Bật AI (tùy chọn)
+
+Mặc định khóa AI để trống: hệ thống chạy bằng bộ quy tắc, **không gọi AI và không ghi `ai_requests`**; trang Làm sạch hiện dòng "Gợi ý đang dùng bộ quy tắc (AI chưa bật)". Muốn bật AI:
+
+1. Nạp credit ở [Claude Console](https://console.anthropic.com) rồi tạo khóa API.
+2. Điền vào `.env` dòng `ANTHROPIC_API_KEY=<khóa>` (không dấu nháy, không commit file này), nhớ lưu file.
+3. Build lại backend: `docker compose up -d --build backend`.
+4. Kiểm tra AI đã chạy: ở trang **Làm sạch dữ liệu** bấm "Sinh gợi ý", các thẻ do AI đề xuất có nhãn **AI đề xuất** và dòng thông báo "chưa bật" biến mất; trong cơ sở dữ liệu có bản ghi mới với `status=success`:
+
+```bash
+docker compose exec postgres psql -U postgres -d data_cleaning -c "select purpose, model, status, latency_ms from ai_requests order by id desc limit 5;"
+```
+
+Nếu AI lỗi hoặc hết giờ, giao diện báo "AI tạm thời không phản hồi, đã dùng bộ quy tắc" và bản ghi có `status=error`; chức năng chính không bị ảnh hưởng.
+
 ## Checklist ngày bảo vệ
 
 Làm theo thứ tự, tick từng mục:
 
-1. [ ] **Đóng băng code**: `git status` sạch, đang ở `main` (tag `v1.0.1-bao-ve`), không sửa thêm gì.
+1. [ ] **Đóng băng code**: `git status` sạch, đang ở `main` (tag `v1.1-bao-ve`), không sửa thêm gì.
 2. [ ] **Reset dữ liệu**: `powershell -ExecutionPolicy Bypass -File scripts/reset-demo.ps1` (gõ `RESET`). Xem mục "Reset trước ngày bảo vệ".
 3. [ ] **Build container**: `docker compose up -d --build`, chờ `docker compose ps` báo cả ba dịch vụ `healthy`.
 4. [ ] **Kiểm tra bản mới ở <http://localhost:8501>**: đăng nhập `user@example.com` / `User12345`, menu có mục **Thư viện quy tắc**; `curl http://localhost:8000/health` trả `{"status":"ok"}`.

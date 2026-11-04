@@ -99,7 +99,7 @@ created_at`. Frontend dùng `null_ratio`, `inferred_type`, `unique_count`, `samp
 
 | Method | Path | Request | Response |
 |---|---|---|---|
-| POST | `/mapping/{version_id}/suggest` | body là **mảng JSON** `list[str]` (các cột chuẩn), ví dụ `["ho_ten","so_dien_thoai"]` | `dict[str, str\|null]` (cột nguồn -> cột đích, `null` nếu không khớp) |
+| POST | `/mapping/{version_id}/suggest` | body là **mảng JSON** `list[str]` (các cột chuẩn), ví dụ `["ho_ten","so_dien_thoai"]` | `dict[str, str\|null]` (cột nguồn -> cột đích, `null` nếu không khớp); header tùy chọn `X-AI-Status` khi có cột phải hỏi AI |
 
 Frontend dựa vào: **khóa = tên cột nguồn** (đủ mọi cột của version, đúng thứ tự), **giá trị = tên cột chuẩn hoặc `null`** (khớp với `match_columns(source_columns, target_schema)`). Frontend không có endpoint lưu mapping: mapping được xác nhận sẽ thành các bước rule `rename_column` (`column` = tên cũ, `params.new_name` = tên mới) đi qua `POST /preview` rồi `POST /versions/{dataset_id}/apply`.
 
@@ -107,8 +107,8 @@ Frontend dựa vào: **khóa = tên cột nguồn** (đủ mọi cột của ver
 
 | Method | Path | Request | Response |
 |---|---|---|---|
-| POST | `/suggestions/generate` | `SuggestionGenerateRequest` `{version_id}` | `list[SuggestionOut]` |
-| GET | `/suggestions/by-version/{version_id}` | - | `list[SuggestionOut]` |
+| POST | `/suggestions/generate` | `SuggestionGenerateRequest` `{version_id}` | `list[SuggestionOut]`; header tùy chọn `X-AI-Status` (xem dưới) |
+| GET | `/suggestions/by-version/{version_id}` | - | `list[SuggestionOut]`; header tùy chọn `X-AI-Status` |
 | POST | `/suggestions/{suggestion_id}/decision` | `{decision: "accepted"\|"rejected"}` | `SuggestionOut` |
 
 `SuggestionOut`: `id, version_id, issue_id, suggestion_type(fix|rule|column_mapping),
@@ -128,6 +128,7 @@ status(pending|accepted|rejected), reviewed_by, reviewed_at, created_at`.
 Định dạng `RuleSet`/`RuleStep` giữ nguyên `app/schemas/rule.py` (frontend không đổi).
 
 Hợp đồng frontend (trang Gợi ý làm sạch) dựa vào:
+- **Header `X-AI-Status` (tùy chọn, thân phản hồi không đổi nên client cũ vẫn chạy):** `used` (AI đã trả lời), `disabled` (chưa có khóa API: không gọi AI, không ghi `ai_requests`), `fallback` (có khóa nhưng AI lỗi hoặc hết giờ, đã dùng bộ quy tắc). `POST /suggestions/generate` luôn gửi header; `GET /suggestions/by-version/{id}` gửi `disabled` khi chưa có khóa, `used` khi trong danh sách có gợi ý từ AI, và bỏ trống khi không biết; `POST /mapping/{id}/suggest` chỉ gửi khi có cột phải hỏi AI. Chọn header thay vì thêm trường vào thân vì thân của cả ba API là mảng hoặc dict, thêm trường sẽ làm hỏng client cũ.
 - `POST /suggestions/generate` **thay thế** gợi ý cũ của cùng `version_id` (không cộng dồn); trả `[]` khi không có gì cần làm sạch (frontend hiện "Dữ liệu đã sạch"). Gợi ý đã sinh được đọc lại bằng `GET /suggestions/by-version/{id}`.
 - `POST /suggestions/{id}/decision` cho phép đổi quyết định nhiều lần (accepted <-> rejected). Chấp nhận **không** áp dụng gì: chỉ `apply` mới tạo version.
 - `POST /preview`: `before_rows` là mẫu `sample_rows` dòng đầu (mọi giá trị dạng chuỗi, ô thiếu là `""`); `after_rows` là kết quả trên đúng mẫu đó, **giữ nguyên thứ tự dòng** (dòng bị xóa chỉ biến mất); `diffs[].row_index` là vị trí 0-based trong `before_rows`; `diffs` chỉ gồm cột có ở cả trước và sau (cột mới/đổi tên không có diff). Frontend dùng các quy ước này để tô màu ô thay đổi.

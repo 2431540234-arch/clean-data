@@ -183,7 +183,7 @@ Trình duyệt ──► Streamlit + Plotly ──HTTP/JSON──► FastAPI
 - Frontend Streamlit 12 trang chạy với backend thật; đã chạy trọn luồng demo trên `khach_hang_ban.csv` (điểm chất lượng 90,5 lên 98,4) và có ảnh chụp ở `docs/screenshots/real-backend/`.
 - Migration tạo đủ 16 bảng; `alembic check` sạch; có test chạy migration trên DB trống (upgrade, downgrade, upgrade lại).
 - Kiểm thử: backend 327 test, frontend 255 test đều đạt; ruff và black đạt; GitHub Actions chạy lint, migration và pytest cho mỗi lần push.
-- AI gợi ý là tùy chọn (cần khóa API): không có khóa thì chạy bằng quy tắc; chưa kiểm thử với khóa thật. Chưa làm: xử lý nền cho file rất lớn, lưu mapping vào bảng, deploy URL công khai.
+- AI gợi ý là tùy chọn (cần khóa API): không có khóa thì chạy bằng quy tắc (không gọi AI, không ghi `ai_requests`). Đã kiểm thử cơ chế dự phòng: khóa sai thì rơi về quy tắc, không traceback, `ai_requests` chỉ chứa số liệu (không có dữ liệu thô hay khóa). **Chưa có lần gọi AI thành công** vì chưa nạp credit API. Chưa làm: xử lý nền cho file rất lớn, lưu mapping vào bảng, deploy URL công khai.
 
 **Gợi ý hình (ảnh chụp màn hình thật cần chụp):** (1) `docker compose ps` với 3 service healthy; (2) trang Swagger `/docs`; (3) kết quả `pytest`; (4) URL deploy khi đã có.
 

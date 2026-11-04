@@ -10,6 +10,7 @@ Tài khoản mẫu:
     user@example.com  / User12345   (người dùng thường)
 """
 
+import hashlib
 import io
 import json
 import os
@@ -549,6 +550,13 @@ def _upload_dataset(call: Call) -> dict[str, Any]:
         raise APIError(422, "Định dạng file không được hỗ trợ. Chỉ nhận CSV hoặc Excel.")
     if len(content) > mock_data.MAX_UPLOAD_MB * 1024 * 1024:
         raise APIError(422, f"File vượt quá {mock_data.MAX_UPLOAD_MB} MB.")
+    return _create_uploaded_dataset(call.user, project_id, filename, file_type, content)
+
+
+def _create_uploaded_dataset(
+    user: dict[str, Any], project_id: int, filename: str, file_type: str, content: bytes
+) -> dict[str, Any]:
+    """Đọc nội dung file đã nhận đủ và tạo dataset + phiên bản 1 (dùng cho cả hai cách tải lên)."""
     try:
         if file_type == "csv":
             frame, encoding = mock_data.read_csv_bytes(content)
@@ -571,7 +579,7 @@ def _upload_dataset(call: Call) -> dict[str, Any]:
     dataset, _ = _add_dataset(
         state,
         project_id=project_id,
-        user_id=call.user["id"],
+        user_id=user["id"],
         filename=filename,
         file_type=file_type,
         file_size=len(content),
@@ -582,6 +590,106 @@ def _upload_dataset(call: Call) -> dict[str, Any]:
     )
     state["raw_files"][dataset["id"]] = (content, file_type)
     return _upload_response(dataset, sheet_names)
+
+
+def _upload_session(call: Call) -> dict[str, Any]:
+    assert call.user is not None
+    session = db().setdefault("uploads", {}).get(call.args[0])
+    if session is None or session["user_id"] != call.user["id"]:
+        raise APIError(404, "Không tìm thấy phiên tải lên (có thể đã hết hạn).")
+    return session
+
+
+@route("POST", "/datasets/uploads")
+def _start_chunked_upload(call: Call) -> dict[str, Any]:
+    """Mô phỏng POST /datasets/uploads: mở phiên tải CSV theo từng phần."""
+    assert call.user is not None
+    try:
+        project_id = int(call.params.get("project_id"))
+    except (TypeError, ValueError):
+        raise validation_error("project_id", "Thiếu project_id.") from None
+    _get_project(project_id, call.user)
+    body = call.json or {}
+    filename, size = str(body.get("filename", "")), int(body.get("size") or 0)
+    sha256 = body.get("sha256")
+    if sha256 is not None and not re.fullmatch(r"[0-9a-fA-F]{64}", str(sha256)):
+        raise APIError(422, "Mã SHA-256 không hợp lệ (cần 64 ký tự thập lục phân).")
+    if not filename.lower().endswith(".csv"):
+        raise APIError(422, "Tải theo từng phần chỉ hỗ trợ file CSV.")
+    if size <= 0:
+        raise APIError(422, "File không có dữ liệu.")
+    if size > mock_data.MAX_CHUNKED_UPLOAD_MB * 1024 * 1024:
+        raise APIError(413, f"File vượt quá {mock_data.MAX_CHUNKED_UPLOAD_MB} MB.")
+    upload_id = f"{_next_id():032x}"
+    db().setdefault("uploads", {})[upload_id] = {
+        "user_id": call.user["id"],
+        "project_id": project_id,
+        "filename": filename,
+        "size": size,
+        "sha256": str(sha256).lower() if sha256 else None,
+        "part_size": mock_data.UPLOAD_PART_MB * 1024 * 1024,
+        "parts": {},
+    }
+    return {
+        "upload_id": upload_id,
+        "part_size_bytes": mock_data.UPLOAD_PART_MB * 1024 * 1024,
+        "max_bytes": mock_data.MAX_CHUNKED_UPLOAD_MB * 1024 * 1024,
+        "expires_in_minutes": 60,
+    }
+
+
+@route("PUT", r"/datasets/uploads/([0-9a-f]{32})/parts/(\d+)")
+def _upload_part(call: Call) -> dict[str, Any]:
+    session = _upload_session(call)
+    index = int(call.args[1])
+    content = (call.files or {}).get("file", (None, b""))[1]
+    if not content:
+        raise APIError(422, "Phần tải lên rỗng.")
+    if len(content) > session["part_size"]:
+        raise APIError(413, f"Mỗi phần tối đa {session['part_size'] // (1024 * 1024)} MB.")
+    expected = call.params.get("sha256")
+    if expected and hashlib.sha256(content).hexdigest() != str(expected).lower():
+        raise APIError(
+            422, f"Phần {index} bị hỏng khi truyền (mã SHA-256 không khớp); hãy gửi lại phần này."
+        )
+    session["parts"][index] = content
+    return {"index": index, "received_bytes": sum(len(p) for p in session["parts"].values())}
+
+
+@route("POST", r"/datasets/uploads/([0-9a-f]{32})/complete")
+def _complete_chunked_upload(call: Call) -> dict[str, Any]:
+    assert call.user is not None
+    session = _upload_session(call)
+    count = int((call.json or {}).get("parts") or 0)
+    missing = [i for i in range(count) if i not in session["parts"]]
+    if count < 1 or missing:
+        raise APIError(422, f"Còn thiếu {len(missing)} phần (số thứ tự: {missing[:10]}).")
+    for index in range(count - 1):  # mọi phần trừ phần cuối phải đúng cỡ đã chốt
+        size = len(session["parts"][index])
+        if size != session["part_size"]:
+            raise APIError(
+                422, f"Phần {index} có {size} byte, cần đúng {session['part_size']} byte."
+            )
+    content = b"".join(session["parts"][i] for i in range(count))
+    if session["sha256"] and hashlib.sha256(content).hexdigest() != session["sha256"]:
+        raise APIError(
+            422,
+            "Nội dung sau khi ghép không khớp mã SHA-256 của file gốc "
+            "(các phần có thể bị đổi thứ tự hoặc hỏng); hãy tải lại.",
+        )
+    if len(content) != session["size"]:
+        raise APIError(
+            422, "Dung lượng sau khi ghép không khớp dung lượng đã khai báo; hãy tải lại."
+        )
+    del db()["uploads"][call.args[0]]
+    project = _get_project(session["project_id"], call.user)
+    return _create_uploaded_dataset(call.user, project["id"], session["filename"], "csv", content)
+
+
+@route("DELETE", r"/datasets/uploads/([0-9a-f]{32})", access="user")
+def _abort_chunked_upload(call: Call) -> None:
+    _upload_session(call)
+    del db()["uploads"][call.args[0]]
 
 
 @route("GET", r"/datasets/(\d+)")
@@ -787,6 +895,23 @@ def _get_quality(call: Call) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+# Trạng thái AI mà mock giả lập ("disabled" | "used" | "fallback"); mặc định như máy chưa có khóa.
+AI_MODE = "disabled"
+
+
+def ai_status(method: str, path: str, result: Any) -> str | None:
+    """Giá trị header X-AI-Status mà backend thật sẽ trả cho yêu cầu này (None nếu không có)."""
+    if method == "POST" and path.endswith("/suggestions/generate"):
+        return AI_MODE
+    if method == "GET" and "/suggestions/by-version/" in path:
+        if AI_MODE == "disabled":
+            return "disabled"
+        return "used" if AI_MODE == "used" else None
+    if method == "POST" and "/mapping/" in path and path.endswith("/suggest"):
+        return AI_MODE if isinstance(result, dict) and None in result.values() else None
+    return None
+
+
 @route("POST", r"/mapping/(\d+)/suggest")
 def _suggest_mapping(call: Call) -> dict[str, str | None]:
     assert call.user is not None
@@ -984,6 +1109,11 @@ def _export_excel(call: Call) -> bytes:
     state = db()
     version = _get_version(int(call.args[0]), call.user)
     frame = state["frames"][version["id"]]
+    from components.upload_rules import excel_row_problem
+
+    problem = excel_row_problem(len(frame))
+    if problem:
+        raise APIError(422, problem)
     report = mock_profiling.quality_report(frame, version["id"], 0, _now())
     summary = pd.DataFrame(
         [
@@ -1049,6 +1179,7 @@ _AUDIT_RULES: dict[str, Callable[[Call, Any], tuple]] = {
     "_delete_project": lambda c, r: (
         "project.delete", "project", int(c.args[0]), None, {"project_id": int(c.args[0])}, None
     ),
+    "_complete_chunked_upload": lambda c, r: _AUDIT_RULES["_upload_dataset"](c, r),
     "_upload_dataset": lambda c, r: (
         "dataset.upload", "dataset", r["dataset"]["id"], r["dataset"]["project_id"], None,
         {"filename": r["dataset"]["original_filename"], "rows": r["first_version"]["row_count"]},
@@ -1078,7 +1209,7 @@ _AUDIT_RULES: dict[str, Callable[[Call, Any], tuple]] = {
         "auth.change_password", "user", c.user["id"], None, None, None
     ),
     "_export_csv": lambda c, r: _export_audit(c, r, "csv"),
-    "_export_excel": lambda c, r: _export_audit(c, r, "excel"),
+    "_export_excel": lambda c, r: _export_audit(c, r, "xlsx"),
 }  # fmt: skip
 
 

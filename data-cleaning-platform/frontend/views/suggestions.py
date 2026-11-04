@@ -16,6 +16,7 @@ import streamlit as st
 
 from api_client import (
     APIError,
+    ai_status_of,
     apply_rules,
     decide_suggestion,
     generate_suggestions,
@@ -75,13 +76,25 @@ def _show_failure(error: Any, key: str) -> None:
         st.error(error.detail, icon=":material/error:")
 
 
+_AI_NOTES = {
+    "disabled": "Gợi ý đang dùng bộ quy tắc (AI chưa bật).",
+    "fallback": "AI tạm thời không phản hồi, đã dùng bộ quy tắc.",
+}
+
+
 def _generate(version_id: int) -> None:
+    headers: dict[str, str] = {}
     result, error = safe_call(
-        "Đang phân tích dữ liệu và sinh gợi ý…", generate_suggestions, get_token(), version_id
+        "Đang phân tích dữ liệu và sinh gợi ý…",
+        generate_suggestions,
+        get_token(),
+        version_id,
+        headers,
     )
     if error is not None:
         _show_failure(error, "generate")
         return
+    st.session_state[f"ai_status_{version_id}"] = ai_status_of(headers)
     set_context(no_issues_version=None if result else version_id)
     set_flash(
         f"Đã sinh {len(result)} gợi ý." if result else "Không phát hiện vấn đề cần làm sạch.",
@@ -405,7 +418,10 @@ mapping_steps = []
 if context.get("pending_version_id") == version_id and context.get("pending_steps"):
     mapping_steps = context.get("pending_steps")
 
-suggestions, error = safe_call("Đang tải gợi ý…", list_suggestions, get_token(), version_id)
+list_headers: dict[str, str] = {}
+suggestions, error = safe_call(
+    "Đang tải gợi ý…", list_suggestions, get_token(), version_id, list_headers
+)
 if error is not None:
     error_state(error, key="suggestions_err")
     st.stop()
@@ -451,6 +467,15 @@ with left_col:
             if clean and st.button("Phân tích lại", icon=":material/refresh:"):
                 _generate(version_id)
         else:
+            # Lần sinh gần nhất trong phiên làm việc này là nguồn chính xác nhất; không có thì
+            # dùng trạng thái suy ra từ danh sách đã lưu.
+            ai_status = st.session_state.get(f"ai_status_{version_id}") or ai_status_of(
+                list_headers
+            )
+            if ai_status in _AI_NOTES:
+                st.caption(
+                    _AI_NOTES[ai_status], help="Nhãn “AI đề xuất” chỉ gắn khi AI thật sự trả lời."
+                )
             severities = _severity_by_issue(version_id)
             counts = {
                 s: sum(1 for x in suggestions if x["status"] == s)

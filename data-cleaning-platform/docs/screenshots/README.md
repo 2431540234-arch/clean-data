@@ -113,3 +113,15 @@ placeholder nào dưới tương phản 4,5:1.
 Bộ ảnh chụp lúc đi thử trọn luồng bằng chế độ dữ liệu mẫu (đăng nhập → Dashboard → Tải lên →
 Tổng quan → Mapping → Gợi ý (xem trước, áp dụng) → Lịch sử → Xuất → Nhật ký → Quản trị), theo thứ tự `01`…`12b`.
 Đây là ảnh của giao diện cuối cùng cho các trang Tải lên, Tổng quan dữ liệu và Mapping cột.
+
+## Tài khoản mới chưa có dữ liệu (`empty-user/`)
+Chụp trên backend thật (Docker) sau khi đăng ký một tài khoản mới qua trang Đăng ký, đi qua 11 trang. Mọi trang hiện
+trạng thái rỗng đúng; số liệu duy nhất xuất hiện là dữ liệu thật của chính tài khoản đó (1 bản ghi nhật ký là lần đăng ký,
+mục Tài khoản 0/0/0, "13 quy tắc hệ thống" của thư viện). Không có tên file, điểm hay dự án của người khác.
+Thẻ "Quy trình làm sạch" ở Trang chủ hiện toàn bộ "Chưa làm" khi chưa chọn dataset.
+
+## Luồng demo cuối (`final-demo/`)
+Chụp trên backend thật (Docker, chưa có khóa AI nên gợi ý đến từ bộ quy tắc): đăng nhập, tạo dự án, tải `khach_hang_ban.csv`,
+Tổng quan, Làm sạch (chấp nhận, xem trước, áp dụng), Lịch sử (hoàn tác, làm lại), Xuất CSV và Excel, Mapping với
+`khach_hang_tieu_de_khac.csv`, Thư viện quy tắc (soạn và lưu 1 quy tắc), Nhật ký, rồi đăng nhập admin xem Quản trị và Thống kê.
+Ảnh `25`–`26`: tải thử CSV 25,9 MB (130.000 dòng) theo từng phần.

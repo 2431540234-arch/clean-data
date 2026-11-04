@@ -118,11 +118,54 @@ Chạy cùng file `khach_hang_ban.csv` ở hai chế độ cho thấy luồng v�
 | Điểm TB của project trên Dashboard | tính ngay | chỉ khi phiên bản hiện tại đã được phân tích hoặc xem điểm |
 | File lạ, quá lớn, sai loại | báo lỗi chung | kiểm tra chữ ký file, 413 khi quá `MAX_UPLOAD_MB`, giới hạn dòng/cột |
 
+## CSV lớn theo từng phần (tới 200 MB)
+
+**Làm gì.** Thêm 4 endpoint `/datasets/uploads...` để tải CSV lớn: frontend tự tách file thành các phần 8 MB,
+gửi lần lượt, server ghép lại thành một file rồi đọc theo luồng (`services/ingestion/csv_stream.py`) và ghi
+Parquet từng khối, không nạp cả file vào RAM. Sau đó làm sạch và xuất trên **cả bộ dữ liệu** như file thường.
+
+**Vì sao không xử lý từng phần riêng.** Xóa dòng trùng, ngoại lai (IQR/z-score), điền trung vị/giá trị phổ biến
+và điểm chất lượng cần nhìn toàn bộ dữ liệu; làm riêng từng phần rồi gộp sẽ cho kết quả khác file nhỏ.
+Có test so sánh đọc theo luồng với đọc cả file (`tests/unit/test_csv_stream.py`, cỡ khối từ 1 dòng tới 1000).
+
+**Phiên tải.** Lưu trên đĩa ở `UPLOAD_TMP_DIR` (mặc định `data/tmp_uploads`), không có bảng DB; tự dọn sau
+`UPLOAD_SESSION_TTL_MINUTES` (60 phút) và dọn ngay khi hoàn tất hoặc khi CSV lỗi. Phiên gắn với người mở.
+
+**Toàn vẹn (server không tin frontend).** Mỗi phiên chốt `part_size` lúc mở; mọi phần trừ phần cuối phải đúng cỡ đó,
+tổng dung lượng các phần không được vượt dung lượng khai báo và phải bằng nó khi hoàn tất, trần
+`MAX_CHUNKED_UPLOAD_MB` do server giữ. Gửi lại cùng một phần là ghi đè (không ghép trùng). Mã SHA-256 (thư viện
+chuẩn `hashlib`, không thêm gói) được kiểm cho từng phần (query `sha256`) và cho cả file (lúc mở phiên): chỉ mã của
+cả file mới bắt được việc hai phần cùng kích thước bị đổi chỗ; nếu client không gửi mã thì không phát hiện được
+(có test ghi lại giới hạn này). Frontend luôn gửi cả hai mã.
+
+**Dọn dẹp.** Các phần nằm ở `UPLOAD_TMP_DIR` (mặc định `backend/data/tmp_uploads`, tức `/app/data/tmp_uploads` trong
+container), KHÔNG nằm trong volume `dcp_storage`. Xóa hết khi hoàn tất, hủy hoặc khi CSV lỗi. Phiên quá
+`UPLOAD_SESSION_TTL_MINUTES` (60 phút không hoạt động) bị xóa: khi ứng dụng khởi động, khi có người mở phiên mới, tối đa
+mỗi phút một lần khi nhận phần, và ngay khi chính phiên đó bị truy cập. Không có tác vụ định kỳ riêng.
+
+**Nhật ký (audit).** Chỉ lần hoàn tất ghi `dataset.upload` (đã tạo dữ liệu). Mở phiên, gửi phần và hủy không ghi nhật ký.
+
+**Giới hạn Excel.** Một sheet Excel chứa tối đa 1.048.575 dòng dữ liệu; `GET /export/{version_id}/excel` trả 422 với
+gợi ý xuất CSV khi vượt (kiểm cả sheet "Lỗi đã phát hiện", báo sớm theo `row_count` trước khi nạp bảng). Không tự cắt dữ liệu.
+
+**Đo thực tế** (Docker, 16 GiB RAM, file 198 MiB / 840.000 dòng / 7 cột, mỗi giai đoạn bắt đầu từ backend mới khởi động):
+
+| Giai đoạn | Thời gian | RAM đỉnh |
+|---|---|---|
+| Tải 25 phần + ghép + đọc theo luồng + lưu | 12,7 giây | 653 MiB |
+| Phân tích (profiling) | 80 giây | 2,2 GiB |
+| Sinh gợi ý | 0,1 giây | ~120 MiB |
+| Áp dụng 4 bước làm sạch | 9,7 giây | 1,4 GiB |
+| Xuất CSV (198 MiB) / Excel (34 MiB) | — / 142 giây | 3,4 GiB |
+
+Timeout của frontend cho các thao tác này đã nới (phân tích 600 giây, xuất Excel 900 giây).
+
 ## Cải thiện sau
 
 - **403 hay 404:** hiện tài nguyên của người khác trả 403 ("không có quyền"), nên người ngoài biết được ID đó có tồn tại. Có thể đổi thành 404 cho mọi trường hợp không phải của mình.
-- **Kiểm thử AI với khóa thật:** AI mới được kiểm thử bằng client giả; cần thử một lần với khóa Anthropic thật (đặt `ANTHROPIC_API_KEY`) và xem lại prompt.
-- **Xử lý nền cho file rất lớn:** upload, profiling và áp dụng rule chạy đồng bộ trong request (giới hạn 50 MB, 1.000.000 dòng); file lớn hơn nên chuyển sang tác vụ nền (`workers/tasks.py` còn là khung).
+- **Kiểm thử AI với khóa thật:** đã kiểm thử bằng client giả và cơ chế dự phòng thật (khóa Anthropic sai, backend tạm: cả 3 lần sinh gợi ý rơi về quy tắc, không traceback, `ai_requests` ghi `status=error` kèm `AuthenticationError`, không chứa dữ liệu thô hay khóa; "Lượt gọi AI" đếm đúng). **Chưa có lần gọi AI thành công** vì chưa nạp credit API, nên prompt chưa được xem lại với câu trả lời thật.
+- **Xử lý nền cho file rất lớn:** upload, profiling và áp dụng rule chạy đồng bộ trong request. CSV tới 200 MB được tải theo từng phần (xem mục "CSV lớn theo từng phần" bên dưới) nhưng phân tích và xuất vẫn đồng bộ (đo ở 198 MiB / 840.000 dòng: phân tích ~80 giây, xuất Excel ~140 giây, RAM đỉnh ~3,4 GiB). Muốn vượt 200 MB hoặc tránh request kéo dài thì chuyển sang tác vụ nền (`workers/tasks.py` còn là khung).
+- **Excel lớn hơn 50 MB:** chưa hỗ trợ (openpyxl phải nạp cả file); hãy lưu thành CSV.
 - **Lưu mapping và schema chuẩn của project:** endpoint #4, #5 (`column_mappings`, `target-schema`) chưa làm; hiện mapping được áp dụng bằng bước `rename_column`.
 - **Dọn file lưu trữ mồ côi:** nếu ghi DB thất bại sau khi ghi file, hệ thống đã dọn; còn trường hợp tiến trình bị tắt đột ngột giữa chừng thì cần một tác vụ quét định kỳ.
 - **Chặn đăng nhập sai nhiều tiến trình:** bộ đếm đọc từ DB nên dùng chung được, nhưng chưa có giới hạn tốc độ chung cho các API khác (nên đặt ở reverse proxy khi deploy).

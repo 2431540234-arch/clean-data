@@ -8,6 +8,7 @@ import streamlit as st
 from conftest import find_button
 
 import api_client
+from components import upload_rules
 from components.quality_gauge import score_label
 
 CONTEXT = {"work_context": {"dataset_id": 1}}
@@ -63,7 +64,7 @@ def test_api_export_excel_has_the_three_backend_sheets(call_api):
     assert list(issues.columns) == ["Cột", "Loại lỗi", "Mức độ", "Số dòng", "Mô tả"]
 
 
-@pytest.mark.parametrize(("method", "fmt"), [("export_csv", "csv"), ("export_excel", "excel")])
+@pytest.mark.parametrize(("method", "fmt"), [("export_csv", "csv"), ("export_excel", "xlsx")])
 def test_api_export_writes_audit_entry_like_backend(call_api, method, fmt):
     content, error, db = call_api("user", method, 1)
     assert error is None
@@ -214,3 +215,45 @@ def test_export_failure_shown_inline(run_view, monkeypatch):
 def test_page_without_dataset(run_view):
     at = run_view("export", role="user")
     assert any("Chưa chọn dataset" in m.value for m in at.markdown)
+
+
+# ---------------------------------------------------------------- giới hạn dòng của Excel
+
+
+def test_excel_is_blocked_with_a_hint_when_rows_exceed_one_sheet(run_view, monkeypatch):
+    monkeypatch.setattr(upload_rules, "EXCEL_MAX_DATA_ROWS", 20)  # dataset mẫu có 30 dòng
+    at = run_view("export", role="user", state=CONTEXT)
+    assert not at.exception
+    assert find_button(at, "Tạo tệp Excel").disabled
+    assert not find_button(at, "Tạo tệp CSV").disabled  # CSV không giới hạn số dòng
+    warning = " ".join(w.value for w in at.warning)
+    assert "30 dòng" in warning and "20 dòng" in warning and "xuất CSV" in warning
+    assert "không tự cắt" in warning
+
+
+def test_excel_is_available_at_exactly_the_limit(run_view, monkeypatch):
+    monkeypatch.setattr(upload_rules, "EXCEL_MAX_DATA_ROWS", 30)
+    at = run_view("export", role="user", state=CONTEXT)
+    assert not find_button(at, "Tạo tệp Excel").disabled
+    assert not any("giới hạn" in w.value for w in at.warning)
+
+
+def test_mock_excel_export_refuses_rows_over_the_limit_like_the_backend(call_api, monkeypatch):
+    monkeypatch.setattr(upload_rules, "EXCEL_MAX_DATA_ROWS", 20)
+    _, error, _ = call_api("user", "export_excel", 1)
+    assert error.status_code == 422 and "xuất CSV" in error.detail
+    content, error, _ = call_api("user", "export_csv", 1)
+    assert error is None and len(pd.read_csv(io.BytesIO(content), encoding="utf-8-sig")) == 30
+
+
+def test_real_excel_limit_message_uses_vietnamese_number_format():
+    assert upload_rules.excel_row_problem(1_048_575) is None
+    message = upload_rules.excel_row_problem(1_048_576)
+    assert "1.048.576" in message and "1.048.575" in message and "CSV" in message
+
+
+def test_export_history_shows_excel_for_the_backend_format_code_xlsx(run_view):
+    at = run_view("export", role="user", state=CONTEXT)
+    find_button(at, "Tạo tệp Excel").click().run()
+    history = next(d.value for d in at.dataframe if "Định dạng" in d.value.columns)
+    assert list(history["Định dạng"]) == ["Excel"]

@@ -27,6 +27,7 @@ from components.ui import (
     safe_call,
     section,
 )
+from components.upload_rules import excel_row_problem
 from state import get_context, get_token, set_context
 
 # Khớp docs/quality_score.md: nhãn và trọng số của 4 tiêu chí thành phần.
@@ -143,11 +144,15 @@ def _export_card(key: str, dataset: dict[str, Any], version: dict[str, Any]) -> 
         else:
             for sheet, description in _EXCEL_SHEETS:
                 st.markdown(f"- Sheet “{sheet}”: {description}")
+        blocked = excel_row_problem(version["row_count"]) if key == "excel" else None
+        if blocked:
+            st.warning(blocked, icon=":material/table_rows:")
         if st.button(
             f"Tạo tệp {spec['title']}",
             key=f"make_{key}",
             icon=":material/draft:",
             use_container_width=True,
+            disabled=blocked is not None,
         ):
             content, error = safe_call(
                 f"Đang tạo tệp {spec['title']}…", spec["fetch"], get_token(), version["id"]
@@ -173,6 +178,12 @@ def _export_card(key: str, dataset: dict[str, Any], version: dict[str, Any]) -> 
             )
 
 
+def _format_title(code: object) -> str:
+    """Tên định dạng trong lịch sử xuất; backend ghi "csv" hoặc "xlsx"."""
+    key = {"xlsx": "excel"}.get(str(code), str(code))
+    return _FORMATS.get(key, {}).get("title", str(code))
+
+
 def _history_section(dataset_id: int) -> None:
     """Lịch sử xuất của dataset, lấy từ nhật ký hoạt động (action "dataset.export")."""
     with section("Lịch sử xuất", caption="Các lần xuất gần đây của dataset này."):
@@ -191,9 +202,7 @@ def _history_section(dataset_id: int) -> None:
         data_table(
             pd.DataFrame(
                 {
-                    "Định dạng": _FORMATS.get(e["new_value"].get("format"), {}).get(
-                        "title", str(e["new_value"].get("format"))
-                    ),
+                    "Định dạng": _format_title(e["new_value"].get("format")),
                     "Phiên bản": f"v{e['new_value'].get('version_number', '?')}",
                     "Dung lượng": format_bytes(int(e["new_value"].get("bytes") or 0)),
                     "Thời gian": format_datetime(e["created_at"]),

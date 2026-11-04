@@ -12,8 +12,8 @@ font = "sans serif"
 headless = true
 enableCORS = false
 enableXsrfProtection = true
-# Khớp backend MAX_UPLOAD_MB (views/upload.py: MAX_UPLOAD_MB)
-maxUploadSize = 50
+# Khớp MAX_CSV_MB trong views/upload.py (CSV tới 200 MB; Excel tối đa 50 MB do trang kiểm tra)
+maxUploadSize = 200
 
 [client]
 # Ẩn nút Deploy; giữ menu cơ bản.

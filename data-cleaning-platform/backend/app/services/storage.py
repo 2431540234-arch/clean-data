@@ -9,6 +9,7 @@ không bao giờ lấy từ người dùng. Driver local vẫn kiểm tra để 
 """
 
 import io
+import shutil
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -98,6 +99,19 @@ def save_bytes(storage_path: str, content: bytes) -> None:
     temp = target.with_name(target.name + ".tmp")
     temp.write_bytes(content)
     temp.replace(target)  # ghi nguyên tử: không để lại file dở khi lỗi giữa chừng
+
+
+def save_file(storage_path: str, source: Path) -> None:
+    """Lưu một file trên đĩa vào `storage_path` mà không nạp cả file vào bộ nhớ (file lớn)."""
+    key = _normalize_key(storage_path)
+    if get_backend_name() == "s3":
+        _get_s3_client().upload_file(str(source), settings.STORAGE_BUCKET, key)
+        return
+    target = _local_path(key)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temp = target.with_name(target.name + ".tmp")
+    shutil.copyfile(source, temp)
+    temp.replace(target)
 
 
 def load_bytes(storage_path: str) -> bytes:

@@ -269,10 +269,13 @@ def ai_suggestions(
     version: DatasetVersion,
     profiles: list[SchemaProfile],
     issues: list[DataIssue],
-) -> list[ProposedSuggestion]:
-    """Gợi ý bổ sung từ AI; [] nếu không có khóa, AI lỗi hay câu trả lời không hợp lệ."""
+) -> tuple[list[ProposedSuggestion], str]:
+    """Gợi ý bổ sung từ AI và trạng thái AI (disabled/fallback/used).
+
+    Danh sách rỗng nếu không có khóa, AI lỗi hay câu trả lời không hợp lệ.
+    """
     if not ai_service.ai_available():
-        return []
+        return [], ai_service.AI_DISABLED
     summary = build_profiling_summary(version.row_count, profiles, issues)
     data = ai_service.call_ai(
         db,
@@ -282,11 +285,11 @@ def ai_suggestions(
         build_suggestion_prompt(summary),
     )
     if data is None:
-        return []
+        return [], ai_service.AI_FALLBACK
     columns = {p.column_name for p in profiles}
     valid = validate_ai_suggestions(data, columns, {i.id for i in issues})
     valid = _only_runnable(version, valid)
-    return [
+    proposals = [
         ProposedSuggestion(
             source="ai",
             issue_id=s.issue_id,
@@ -297,6 +300,7 @@ def ai_suggestions(
         )
         for s in valid
     ]
+    return proposals, ai_service.AI_USED
 
 
 def _only_runnable(version: DatasetVersion, suggestions: list[AISuggestion]) -> list[AISuggestion]:
@@ -338,16 +342,17 @@ def merge_proposals(
 
 def generate_suggestions(
     db: Session, user_id: int, version: DatasetVersion, ip_address: str | None = None
-) -> list[Suggestion]:
-    """Sinh lại toàn bộ gợi ý của phiên bản (thay thế gợi ý cũ) và trả danh sách đã lưu."""
+) -> tuple[list[Suggestion], str]:
+    """Sinh lại toàn bộ gợi ý của phiên bản (thay thế gợi ý cũ).
+
+    Trả (danh sách đã lưu, trạng thái AI: disabled/fallback/used).
+    """
     profiles = profiling_service.run_profiling(db, version)  # tự chạy profiling nếu chưa có
     issues = profiling_service.list_issue_rows(db, version.id)
     by_name = {p.column_name: p for p in profiles}
 
-    proposals = merge_proposals(
-        baseline_suggestions(issues, by_name),
-        ai_suggestions(db, user_id, version, profiles, issues),
-    )
+    ai_proposals, ai_status = ai_suggestions(db, user_id, version, profiles, issues)
+    proposals = merge_proposals(baseline_suggestions(issues, by_name), ai_proposals)
 
     db.get(DatasetVersion, version.id, with_for_update=True)
     db.execute(delete(Suggestion).where(Suggestion.version_id == version.id))
@@ -383,4 +388,4 @@ def generate_suggestions(
     )
     db.commit()
     stmt = select(Suggestion).where(Suggestion.version_id == version.id).order_by(Suggestion.id)
-    return list(db.scalars(stmt))
+    return list(db.scalars(stmt)), ai_status

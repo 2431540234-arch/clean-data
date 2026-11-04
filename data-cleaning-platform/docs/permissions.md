@@ -9,6 +9,7 @@ Quyền được kiểm tra ở **backend**; giao diện chỉ ẩn bớt trang 
 | Xem/sửa/xóa project của người khác | ✅ | ❌ | ❌ (403) |
 | Xem danh sách project | ✅ (tất cả) | ✅ (của mình) | — |
 | Upload dataset, chọn sheet Excel | ✅ (mọi project) | ✅ (project của mình) | ❌ (403) |
+| Tải CSV lớn theo từng phần (mở phiên, gửi phần, hoàn tất, hủy) | ✅ (mọi project) | ✅ (project của mình; phiên chỉ của người mở) | ❌ (403 khi mở phiên; 404 với phiên của người khác) |
 | Xem dataset, phiên bản, dòng dữ liệu, danh sách dataset của project | ✅ | ✅ | ❌ (403) |
 | Profiling, xem lỗi đã phát hiện, điểm chất lượng | ✅ | ✅ (dataset của mình) | ❌ (403) |
 | Mapping cột, sinh/duyệt gợi ý làm sạch | ✅ | ✅ (dataset của mình) | ❌ (403) |

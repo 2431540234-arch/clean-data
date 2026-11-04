@@ -5,7 +5,7 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-from api_client import list_projects, select_sheet, upload_dataset
+from api_client import list_projects, select_sheet, upload_dataset, upload_dataset_in_parts
 from components.dataset_context import open_dataset_form
 from components.formatting import format_bytes, format_number
 from components.navigation import get_page
@@ -18,10 +18,10 @@ from components.ui import (
     safe_call,
     section,
 )
+from components.upload_rules import MAX_CSV_MB, MAX_EXCEL_MB, size_problem, use_parts
 from components.work_context import project_context, uploaded_dataset_context
 from state import get_context, get_token, set_context, set_flash
 
-MAX_UPLOAD_MB = 50  # khớp backend MAX_UPLOAD_MB và server.maxUploadSize trong config.toml
 _ACCEPTED_TYPES = ["csv", "xlsx"]  # khớp chữ trong khối CSS "Việt hóa ô tải file"
 _NONCE_KEY = "upload_nonce"  # đổi key của file_uploader để xóa file đã chọn
 
@@ -32,18 +32,40 @@ def _store_result(result: dict[str, Any], project: dict[str, Any] | None) -> Non
 
 
 def _do_upload(project: dict[str, Any], uploaded: Any) -> None:
-    if uploaded.size > MAX_UPLOAD_MB * 1024 * 1024:
-        st.error(f"File vượt quá {MAX_UPLOAD_MB} MB.", icon=":material/error:")
+    problem = size_problem(uploaded.name, uploaded.size)
+    if problem:
+        st.error(problem, icon=":material/error:")
         return
-    result, error = safe_call(
-        "Đang tải lên và phân tích file…",
-        upload_dataset,
-        get_token(),
-        project["id"],
-        uploaded.name,
-        uploaded.getvalue(),
-        uploaded.type,
-    )
+    if use_parts(uploaded.name, uploaded.size):
+        bar = st.progress(0.0, text="Đang chuẩn bị tải lên theo từng phần…")
+
+        def show_progress(done: int, total: int) -> None:
+            if done < total:
+                bar.progress(done / total, text=f"Đang tải phần {done}/{total}…")
+            else:
+                bar.progress(
+                    1.0, text="Đã gửi đủ. Đang ghép file và phân tích, có thể mất vài phút…"
+                )
+
+        result, error = safe_call(
+            "Đang tải lên theo từng phần…",
+            upload_dataset_in_parts,
+            get_token(),
+            project["id"],
+            uploaded.name,
+            uploaded.getvalue(),
+            on_progress=show_progress,
+        )
+    else:
+        result, error = safe_call(
+            "Đang tải lên và phân tích file…",
+            upload_dataset,
+            get_token(),
+            project["id"],
+            uploaded.name,
+            uploaded.getvalue(),
+            uploaded.type,
+        )
     if error is not None:
         if error.status_code >= 500 or error.status_code == 0:
             error_state(error, key="upload_err")
@@ -159,7 +181,10 @@ upload_col, result_col = st.columns([1, 1.35], gap="large")
 with upload_col:
     with section(
         "Tải file lên",
-        caption=f"Hỗ trợ file CSV và Excel (.xlsx), tối đa {MAX_UPLOAD_MB} MB.",
+        caption=(
+            f"CSV tối đa {MAX_CSV_MB} MB (file lớn tự tách thành nhiều phần khi tải lên, "
+            f"rồi ghép lại để xử lý). Excel (.xlsx) tối đa {MAX_EXCEL_MB} MB."
+        ),
     ):
         project_id = st.selectbox(
             "Dự án",

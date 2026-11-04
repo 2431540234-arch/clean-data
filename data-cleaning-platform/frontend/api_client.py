@@ -4,7 +4,10 @@
 backend thật. Đây là nơi DUY NHẤT chọn giữa mock và thật: các trang/component không biết.
 """
 
+import contextlib
+import hashlib
 import os
+from collections.abc import Callable
 from typing import Any
 
 import httpx
@@ -106,6 +109,7 @@ def request(
     files: dict[str, Any] | None = None,
     timeout: float = 30.0,
     raw: bool = False,
+    headers_out: dict[str, str] | None = None,
 ) -> Any:
     """Gọi API backend tại BACKEND_URL + path, raise APIError nếu không thành công.
 
@@ -115,6 +119,7 @@ def request(
         token: JWT access token, nếu có sẽ gắn vào header Authorization.
         json: body JSON (dict hoặc list).
         raw: True để nhận nguyên bytes của response (dùng cho tải file xuất).
+        headers_out: nếu có, được điền header phản hồi (khóa viết thường) để đọc `x-ai-status`.
 
     Raises:
         APIError: backend trả lỗi (status >= 400).
@@ -123,9 +128,14 @@ def request(
     if MOCK:
         import mock_api
 
-        return mock_api.handle(
+        result = mock_api.handle(
             method, path, token=token, json=json, params=params, files=files, raw=raw
         )
+        if headers_out is not None:
+            status = mock_api.ai_status(method, path, result)
+            if status:
+                headers_out["x-ai-status"] = status
+        return result
 
     url = f"{BACKEND_URL}{path}"
     try:
@@ -141,6 +151,8 @@ def request(
     if response.status_code >= 400:
         _raise_for_response(response)
 
+    if headers_out is not None:
+        headers_out.update({k.lower(): v for k, v in response.headers.items()})
     if raw:
         return response.content
     if response.content:
@@ -201,6 +213,99 @@ def upload_dataset(
     )
 
 
+def start_chunked_upload(
+    token: str, project_id: int, filename: str, size: int, sha256: str | None = None
+) -> dict[str, Any]:
+    """Mở phiên tải CSV lớn theo từng phần: {upload_id, part_size_bytes, max_bytes, ...}.
+
+    `sha256` (hex) là mã SHA-256 của cả file để backend kiểm tra sau khi ghép các phần.
+    """
+    body: dict[str, Any] = {"filename": filename, "size": size}
+    if sha256 is not None:
+        body["sha256"] = sha256
+    return request(
+        "POST",
+        "/api/v1/datasets/uploads",
+        token=token,
+        params={"project_id": project_id},
+        json=body,
+    )
+
+
+def send_upload_part(
+    token: str, upload_id: str, index: int, content: bytes, sha256: str | None = None
+) -> dict[str, Any]:
+    """Gửi phần thứ `index` (từ 0) của một phiên; gửi lại cùng số thì ghi đè.
+
+    `sha256` (hex) là mã SHA-256 của phần này; backend từ chối phần không khớp.
+    """
+    return request(
+        "PUT",
+        f"/api/v1/datasets/uploads/{upload_id}/parts/{index}",
+        token=token,
+        params={"sha256": sha256} if sha256 is not None else None,
+        files={"file": ("part", content, "application/octet-stream")},
+        timeout=120.0,
+    )
+
+
+def complete_chunked_upload(token: str, upload_id: str, parts: int) -> dict[str, Any]:
+    """Ghép các phần, đọc và tạo dataset (DatasetUploadResponse). File lớn có thể mất vài phút."""
+    return request(
+        "POST",
+        f"/api/v1/datasets/uploads/{upload_id}/complete",
+        token=token,
+        json={"parts": parts},
+        timeout=900.0,
+    )
+
+
+def abort_chunked_upload(token: str, upload_id: str) -> None:
+    """Hủy phiên tải lên và xóa các phần đã gửi."""
+    request("DELETE", f"/api/v1/datasets/uploads/{upload_id}", token=token)
+
+
+_PART_RETRIES = 2  # số lần gửi lại một phần khi mạng chập chờn (không gửi lại khi backend báo lỗi)
+
+
+def upload_dataset_in_parts(
+    token: str,
+    project_id: int,
+    filename: str,
+    content: bytes,
+    on_progress: Callable[[int, int], None] | None = None,
+) -> dict[str, Any]:
+    """Tải CSV lớn: tự tách thành các phần, gửi lần lượt rồi để backend ghép và xử lý cả bộ.
+
+    `on_progress(đã_gửi, tổng_phần)` được gọi sau mỗi phần. Lỗi giữa chừng thì hủy phiên đã mở.
+    """
+    session = start_chunked_upload(
+        token, project_id, filename, len(content), hashlib.sha256(content).hexdigest()
+    )
+    upload_id, part_size = session["upload_id"], session["part_size_bytes"]
+    total = -(-len(content) // part_size)
+    try:
+        for index in range(total):
+            chunk = content[index * part_size : (index + 1) * part_size]
+            for attempt in range(_PART_RETRIES + 1):
+                try:
+                    send_upload_part(
+                        token, upload_id, index, chunk, sha256=hashlib.sha256(chunk).hexdigest()
+                    )
+                    break
+                except APIConnectionError:
+                    if attempt == _PART_RETRIES:
+                        raise
+            if on_progress is not None:
+                on_progress(index + 1, total)
+        return complete_chunked_upload(token, upload_id, total)
+    except APIError as exc:
+        if exc.status_code != 422 or "thiếu" not in exc.detail:  # thiếu phần: để phiên cho gửi bù
+            with contextlib.suppress(APIError):  # phiên cũng tự hết hạn; không che lỗi gốc
+                abort_chunked_upload(token, upload_id)
+        raise
+
+
 def get_dataset(token: str, dataset_id: int) -> dict[str, Any]:
     """Thông tin một dataset (DatasetOut)."""
     return request("GET", f"/api/v1/datasets/{dataset_id}", token=token)
@@ -229,12 +334,12 @@ def get_profiling(token: str, version_id: int) -> dict[str, Any]:
 
 def run_profiling(token: str, version_id: int) -> dict[str, Any]:
     """Chạy profiling cho một phiên bản và lưu kết quả (ProfilingResult)."""
-    return request("POST", f"/api/v1/profiling/{version_id}/run", token=token, timeout=120.0)
+    return request("POST", f"/api/v1/profiling/{version_id}/run", token=token, timeout=600.0)
 
 
 def get_quality(token: str, version_id: int) -> dict[str, Any]:
     """Điểm chất lượng của một phiên bản (QualityReportOut)."""
-    return request("GET", f"/api/v1/quality/{version_id}", token=token, timeout=60.0)
+    return request("GET", f"/api/v1/quality/{version_id}", token=token, timeout=300.0)
 
 
 def list_project_datasets(token: str, project_id: int) -> list[dict[str, Any]]:
@@ -244,7 +349,7 @@ def list_project_datasets(token: str, project_id: int) -> list[dict[str, Any]]:
 
 def get_issues(token: str, version_id: int) -> list[dict[str, Any]]:
     """Lỗi dữ liệu đã phát hiện của một phiên bản (list[DataIssueOut]); 404 nếu chưa profiling."""
-    return request("GET", f"/api/v1/profiling/{version_id}/issues", token=token)
+    return request("GET", f"/api/v1/profiling/{version_id}/issues", token=token, timeout=300.0)
 
 
 def get_rows(
@@ -265,7 +370,12 @@ def get_project(token: str, project_id: int) -> dict[str, Any]:
     return request("GET", f"/api/v1/projects/{project_id}", token=token)
 
 
-def suggest_mapping(token: str, version_id: int, target_schema: list[str]) -> dict[str, str | None]:
+def suggest_mapping(
+    token: str,
+    version_id: int,
+    target_schema: list[str],
+    status_out: dict[str, str] | None = None,
+) -> dict[str, str | None]:
     """Gợi ý mapping cột nguồn -> cột đích (None nếu không khớp); body là mảng JSON cột chuẩn."""
     return request(
         "POST",
@@ -273,23 +383,43 @@ def suggest_mapping(token: str, version_id: int, target_schema: list[str]) -> di
         token=token,
         json=target_schema,
         timeout=120.0,  # tầng 2 có thể gọi AI nên chậm hơn
+        headers_out=status_out,
     )
 
 
-def generate_suggestions(token: str, version_id: int) -> list[dict[str, Any]]:
-    """Sinh gợi ý làm sạch mới cho một phiên bản (list[SuggestionOut]). Có thể gọi AI nên chậm."""
+def generate_suggestions(
+    token: str, version_id: int, status_out: dict[str, str] | None = None
+) -> list[dict[str, Any]]:
+    """Sinh gợi ý làm sạch mới cho một phiên bản (list[SuggestionOut]). Có thể gọi AI nên chậm.
+
+    `status_out` (tùy chọn) được điền header phản hồi; xem `ai_status_of`.
+    """
     return request(
         "POST",
         "/api/v1/suggestions/generate",
         token=token,
         json={"version_id": version_id},
-        timeout=180.0,
+        timeout=300.0,
+        headers_out=status_out,
     )
 
 
-def list_suggestions(token: str, version_id: int) -> list[dict[str, Any]]:
+def list_suggestions(
+    token: str, version_id: int, status_out: dict[str, str] | None = None
+) -> list[dict[str, Any]]:
     """Mọi gợi ý đã có của một phiên bản (list[SuggestionOut])."""
-    return request("GET", f"/api/v1/suggestions/by-version/{version_id}", token=token)
+    return request(
+        "GET",
+        f"/api/v1/suggestions/by-version/{version_id}",
+        token=token,
+        headers_out=status_out,
+    )
+
+
+def ai_status_of(headers: dict[str, str]) -> str | None:
+    """Trạng thái AI ("used" | "disabled" | "fallback") từ `X-AI-Status`; None nếu không rõ."""
+    value = headers.get("x-ai-status")
+    return value if value in ("used", "disabled", "fallback") else None
 
 
 def decide_suggestion(token: str, suggestion_id: int, decision: str) -> dict[str, Any]:
@@ -311,7 +441,7 @@ def preview_rules(
         "/api/v1/preview",
         token=token,
         json={"version_id": version_id, "rule_set": {"steps": steps}, "sample_rows": sample_rows},
-        timeout=120.0,
+        timeout=300.0,
     )
 
 
@@ -322,7 +452,7 @@ def apply_rules(token: str, dataset_id: int, steps: list[dict[str, Any]]) -> dic
         f"/api/v1/versions/{dataset_id}/apply",
         token=token,
         json={"steps": steps},
-        timeout=180.0,
+        timeout=600.0,
     )
 
 
@@ -343,13 +473,13 @@ def restore_version(token: str, dataset_id: int, version_id: int) -> dict[str, A
 
 def export_csv(token: str, version_id: int) -> bytes:
     """Nội dung file CSV (UTF-8 có BOM) của một phiên bản."""
-    return request("GET", f"/api/v1/export/{version_id}/csv", token=token, raw=True, timeout=180.0)
+    return request("GET", f"/api/v1/export/{version_id}/csv", token=token, raw=True, timeout=600.0)
 
 
 def export_excel(token: str, version_id: int) -> bytes:
     """Nội dung file Excel nhiều sheet (dữ liệu + báo cáo chất lượng) của một phiên bản."""
     return request(
-        "GET", f"/api/v1/export/{version_id}/excel", token=token, raw=True, timeout=180.0
+        "GET", f"/api/v1/export/{version_id}/excel", token=token, raw=True, timeout=900.0
     )
 
 

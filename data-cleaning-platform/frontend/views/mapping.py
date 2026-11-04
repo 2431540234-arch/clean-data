@@ -139,6 +139,7 @@ if context.get("pending_steps") and context.get("pending_version_id") == version
         icon=":material/info:",
     )
 
+
 def _result_panel(
     version_id: int,
     sources: list[str],
@@ -172,9 +173,7 @@ def _result_panel(
             icon=":material/error:",
         )
     elif not steps:
-        st.info(
-            "Không có cột nào cần đổi tên. Bạn có thể bỏ qua bước này.", icon=":material/info:"
-        )
+        st.info("Không có cột nào cần đổi tên. Bạn có thể bỏ qua bước này.", icon=":material/info:")
     st.caption(
         f"Cột để “{KEEP}” sẽ giữ nguyên tên. "
         f"Xác nhận sẽ tạo {len(steps)} bước “Đổi tên cột” để xem trước và áp dụng ở bước Làm sạch."

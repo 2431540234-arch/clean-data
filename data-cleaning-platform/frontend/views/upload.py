@@ -114,9 +114,7 @@ def _show_result(result: dict[str, Any]) -> None:
     rows = result.get("preview_rows") or []
     with section("Xem trước dữ liệu"):
         if rows:
-            st.caption(
-                f"{len(rows)} dòng đầu tiên của {format_number(version['row_count'])} dòng."
-            )
+            st.caption(f"{len(rows)} dòng đầu tiên của {format_number(version['row_count'])} dòng.")
             data_table(_preview_frame(rows), height=320)
         else:
             st.info("Không có dòng nào để xem trước.", icon=":material/info:")
@@ -204,9 +202,7 @@ with result_col:
         _show_result(result)
     else:
         with section("Thông tin file"):
-            uploaded = st.session_state.get(
-                f"upload_file_{st.session_state.get(_NONCE_KEY, 0)}"
-            )
+            uploaded = st.session_state.get(f"upload_file_{st.session_state.get(_NONCE_KEY, 0)}")
             if uploaded is None:
                 st.caption("Chọn file để xem thông tin và tải dữ liệu lên.")
             else:

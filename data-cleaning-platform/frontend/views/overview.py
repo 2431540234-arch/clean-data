@@ -202,9 +202,7 @@ if not columns:
     st.stop()
 
 quality, _ = safe_call("Đang tính điểm chất lượng…", get_quality, get_token(), version["id"])
-issues, issues_error = safe_call(
-    "Đang tải danh sách lỗi…", get_issues, get_token(), version["id"]
-)
+issues, issues_error = safe_call("Đang tải danh sách lỗi…", get_issues, get_token(), version["id"])
 average_missing = sum(c["null_ratio"] for c in columns) / len(columns)
 worst = max(columns, key=lambda c: c["null_ratio"])
 score = f"{quality['overall_score']:.1f}".replace(".", ",") + " / 100" if quality else "—"

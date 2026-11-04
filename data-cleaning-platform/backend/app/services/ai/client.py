@@ -95,9 +95,8 @@ class AIClient:
         except AIError as exc:
             exc.latency_ms = int((time.monotonic() - started) * 1000)
             raise
-        except (
-            Exception
-        ) as exc:  # noqa: BLE001 - lỗi của SDK/mạng, gói lại để caller xử lý thống nhất
+        except Exception as exc:  # noqa: BLE001
+            # Lỗi của SDK/mạng: gói lại để caller xử lý thống nhất.
             raise AIError(
                 f"Gọi AI thất bại ({type(exc).__name__}).",
                 int((time.monotonic() - started) * 1000),

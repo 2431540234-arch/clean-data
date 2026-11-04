@@ -136,6 +136,15 @@ cd backend && pytest            # cần Postgres đang chạy; tự tạo DB dat
 cd frontend && pytest           # không cần backend (dùng dữ liệu mẫu); cần pytest đã cài ở trên
 ```
 
+**Trước mỗi lần commit**, chạy đúng các lệnh mà CI chạy (nếu không, CI sẽ đỏ dù máy bạn vẫn xanh):
+
+```bash
+cd backend  && ruff check . && ruff format --check . && black --check . && pytest
+cd frontend && ruff check . && ruff format --check . && pytest
+```
+
+Hai bộ định dạng `ruff format` và `black` phải cùng báo sạch ở backend. Lưu ý: CI chạy trên Linux, còn nhiều máy dev dùng Windows, nên test liên quan đường dẫn/tên file cần đúng ở cả hai.
+
 ## Kịch bản demo (nên mở file nào ở bước nào)
 
 Đăng nhập bằng `user@example.com` / `User12345`. File mẫu nằm trong [sample_data/](sample_data/).
@@ -167,7 +176,7 @@ khá sạch nên **chỉ dùng cho phần Mapping cột**: nó gần như không
 
 Làm theo thứ tự, tick từng mục:
 
-1. [ ] **Đóng băng code**: `git status` sạch, đang ở `main` (tag `v1.0-bao-ve`), không sửa thêm gì.
+1. [ ] **Đóng băng code**: `git status` sạch, đang ở `main` (tag `v1.0.1-bao-ve`), không sửa thêm gì.
 2. [ ] **Reset dữ liệu**: `powershell -ExecutionPolicy Bypass -File scripts/reset-demo.ps1` (gõ `RESET`). Xem mục "Reset trước ngày bảo vệ".
 3. [ ] **Build container**: `docker compose up -d --build`, chờ `docker compose ps` báo cả ba dịch vụ `healthy`.
 4. [ ] **Kiểm tra bản mới ở <http://localhost:8501>**: đăng nhập `user@example.com` / `User12345`, menu có mục **Thư viện quy tắc**; `curl http://localhost:8000/health` trả `{"status":"ok"}`.

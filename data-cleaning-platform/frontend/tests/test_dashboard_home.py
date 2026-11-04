@@ -129,6 +129,16 @@ def test_home_shows_current_dataset(run_view):
     assert any(b.label == "Tiếp tục" for b in at.button)
 
 
+def test_home_shows_real_project_datasets_and_recent_activity(run_view):
+    at = run_view("home", role="user", state={"work_context": {"project_id": 1}})
+    assert not at.exception
+    assert any("Dataset gần đây" in item.value for item in at.markdown)
+    assert any("Hoạt động gần đây" in item.value for item in at.markdown)
+    assert len(at.dataframe) == 2
+    assert "Tên file" in at.dataframe[0].value.columns
+    assert "Hành động" in at.dataframe[1].value.columns
+
+
 def test_kpi_tiles_are_a_single_list(run_view):
     """Thẻ KPI sinh từ một danh sách: thêm thẻ mới không đổi bố cục."""
     at = run_view("dashboard", role="admin")

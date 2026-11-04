@@ -133,6 +133,8 @@ Muốn làm sạch dữ liệu demo, dùng script reset ở mục "Reset trướ
 - **CSV tới 200 MB:** frontend tự tách file lớn hơn 20 MB thành các phần 8 MB, gửi lần lượt (có thanh tiến độ, tự thử lại phần bị rớt mạng), backend ghép lại thành một file, đọc theo luồng rồi làm sạch trên **cả bộ dữ liệu** và xuất ra một file hoàn chỉnh. Người dùng không phải tự tách file.
 - **Excel tối đa 50 MB** (Excel phải nạp cả file vào bộ nhớ). File Excel lớn hơn: lưu thành CSV rồi tải lại.
 - **Tối đa 1.000.000 dòng và 500 cột** (`MAX_UPLOAD_ROWS`, `MAX_UPLOAD_COLUMNS`).
+- **Xuất Excel tối đa 1.048.575 dòng** (giới hạn của một sheet Excel): vượt thì hệ thống từ chối xuất Excel, khóa nút và gợi ý xuất CSV; **không tự cắt dữ liệu**. CSV không giới hạn số dòng.
+- **Toàn vẹn khi tải theo phần:** server tự kiểm dung lượng từng phần và tổng, mã SHA-256 từng phần và cả file (bắt được cả việc đổi chỗ hai phần); thiếu phần, sai cỡ hoặc sai mã thì không tạo dataset và báo lỗi rõ ràng. Phần tạm nằm ở `backend/data/tmp_uploads` (trong container: `/app/data/tmp_uploads`, không phải volume `dcp_storage`), tự xóa sau 60 phút không hoạt động và ngay khi tải xong, hủy hoặc lỗi.
 - **Thời gian và RAM** (đo với file 198 MiB, 840.000 dòng): tải lên ~13 giây, phân tích ~80 giây, xuất Excel ~140 giây, RAM backend đỉnh ~3,4 GiB; máy chạy backend nên có từ 8 GiB RAM trống khi dùng file gần mức trần. Số liệu đầy đủ ở [docs/BACKEND_NOTES.md](docs/BACKEND_NOTES.md).
 - **Muốn đổi trần:** `MAX_CHUNKED_UPLOAD_MB` trong `.env` (backend) và `maxUploadSize` trong `frontend/.streamlit/config.toml` (Streamlit) phải khớp nhau; frontend đọc trần ở `frontend/components/upload_rules.py`.
 

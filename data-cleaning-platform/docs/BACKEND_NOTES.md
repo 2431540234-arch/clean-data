@@ -131,6 +131,23 @@ Có test so sánh đọc theo luồng với đọc cả file (`tests/unit/test_c
 **Phiên tải.** Lưu trên đĩa ở `UPLOAD_TMP_DIR` (mặc định `data/tmp_uploads`), không có bảng DB; tự dọn sau
 `UPLOAD_SESSION_TTL_MINUTES` (60 phút) và dọn ngay khi hoàn tất hoặc khi CSV lỗi. Phiên gắn với người mở.
 
+**Toàn vẹn (server không tin frontend).** Mỗi phiên chốt `part_size` lúc mở; mọi phần trừ phần cuối phải đúng cỡ đó,
+tổng dung lượng các phần không được vượt dung lượng khai báo và phải bằng nó khi hoàn tất, trần
+`MAX_CHUNKED_UPLOAD_MB` do server giữ. Gửi lại cùng một phần là ghi đè (không ghép trùng). Mã SHA-256 (thư viện
+chuẩn `hashlib`, không thêm gói) được kiểm cho từng phần (query `sha256`) và cho cả file (lúc mở phiên): chỉ mã của
+cả file mới bắt được việc hai phần cùng kích thước bị đổi chỗ; nếu client không gửi mã thì không phát hiện được
+(có test ghi lại giới hạn này). Frontend luôn gửi cả hai mã.
+
+**Dọn dẹp.** Các phần nằm ở `UPLOAD_TMP_DIR` (mặc định `backend/data/tmp_uploads`, tức `/app/data/tmp_uploads` trong
+container), KHÔNG nằm trong volume `dcp_storage`. Xóa hết khi hoàn tất, hủy hoặc khi CSV lỗi. Phiên quá
+`UPLOAD_SESSION_TTL_MINUTES` (60 phút không hoạt động) bị xóa: khi ứng dụng khởi động, khi có người mở phiên mới, tối đa
+mỗi phút một lần khi nhận phần, và ngay khi chính phiên đó bị truy cập. Không có tác vụ định kỳ riêng.
+
+**Nhật ký (audit).** Chỉ lần hoàn tất ghi `dataset.upload` (đã tạo dữ liệu). Mở phiên, gửi phần và hủy không ghi nhật ký.
+
+**Giới hạn Excel.** Một sheet Excel chứa tối đa 1.048.575 dòng dữ liệu; `GET /export/{version_id}/excel` trả 422 với
+gợi ý xuất CSV khi vượt (kiểm cả sheet "Lỗi đã phát hiện", báo sớm theo `row_count` trước khi nạp bảng). Không tự cắt dữ liệu.
+
 **Đo thực tế** (Docker, 16 GiB RAM, file 198 MiB / 840.000 dòng / 7 cột, mỗi giai đoạn bắt đầu từ backend mới khởi động):
 
 | Giai đoạn | Thời gian | RAM đỉnh |

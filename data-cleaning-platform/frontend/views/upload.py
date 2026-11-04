@@ -84,7 +84,7 @@ def _change_upload_project(project_names: dict[int, str]) -> None:
 
 
 def _preview_frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
-    return pd.DataFrame([row["values"] for row in rows])
+    return pd.DataFrame([row["values"] for row in rows]).fillna("")  # ô trống, không hiện "None"
 
 
 def _show_result(result: dict[str, Any]) -> None:

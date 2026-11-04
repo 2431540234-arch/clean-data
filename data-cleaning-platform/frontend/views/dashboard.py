@@ -57,7 +57,7 @@ def _create_dialog() -> None:
         ok, project = _run_action("Đang tạo project…", create_project, get_token(), name.strip())
         if ok:
             set_flash(f"Đã tạo dự án “{project['name']}”.")
-            st.rerun()
+            _open_project(project)  # dự án vừa tạo thành ngữ cảnh để tải dữ liệu vào đúng chỗ
 
 
 def _open_project(project: dict[str, Any], *, to_upload: bool = False) -> None:

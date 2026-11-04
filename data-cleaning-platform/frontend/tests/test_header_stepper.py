@@ -50,6 +50,15 @@ def test_stepper_only_appears_on_the_six_flow_pages(run_view):
     assert any("hiện tại" in label and "Tải lên" in label for label in _step_links(at))
 
 
+def test_header_menu_items_have_no_tooltip(run_view):
+    """Tooltip "Mở trang ..." từng che nhãn của mục menu bên cạnh khi bấm."""
+    at = run_view("home", role="admin")
+    menu = {"Trang chủ", "Dự án", "Làm sạch dữ liệu", "Thư viện quy tắc", "Nhật ký", "Tài khoản"}
+    items = [b for b in at.button if b.label in menu or "Quản trị" in b.label]
+    assert len(items) >= 6
+    assert not [b.label for b in items if b.help]
+
+
 def test_header_admin_menu_is_only_visible_to_admin(run_view):
     user_page = run_view("home", role="user")
     admin_page = run_view("home", role="admin")

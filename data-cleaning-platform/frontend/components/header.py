@@ -172,7 +172,6 @@ def render_header(current_page_key: str = "home") -> None:
                         label=nav_label,
                         icon=f":material/{page.icon}:",
                         use_container_width=True,
-                        help=f"Mở trang {nav_label}",
-                    )
+                    )  # không đặt help: tooltip che nhãn của mục menu bên cạnh
 
     st.markdown('<div class="dc-header-divider"></div>', unsafe_allow_html=True)

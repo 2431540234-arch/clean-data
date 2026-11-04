@@ -51,14 +51,26 @@ def test_api_export_csv_has_bom_and_all_rows(call_api):
     assert len(frame) == 30 and list(frame.columns)[0] == "ho_ten"
 
 
-def test_api_export_excel_has_data_and_quality_sheets(call_api):
+def test_api_export_excel_has_the_three_backend_sheets(call_api):
     content, error, _ = call_api("user", "export_excel", 1)
     assert error is None
     book = pd.ExcelFile(io.BytesIO(content))
-    assert book.sheet_names == ["Dữ liệu", "Báo cáo chất lượng"]
+    assert book.sheet_names == ["Dữ liệu", "Báo cáo chất lượng", "Lỗi đã phát hiện"]
     report = book.parse("Báo cáo chất lượng")
     assert list(report["Chỉ tiêu"])[0] == "Điểm chất lượng (0-100)"
     assert len(book.parse("Dữ liệu")) == 30
+    issues = book.parse("Lỗi đã phát hiện")
+    assert list(issues.columns) == ["Cột", "Loại lỗi", "Mức độ", "Số dòng", "Mô tả"]
+
+
+@pytest.mark.parametrize(("method", "fmt"), [("export_csv", "csv"), ("export_excel", "excel")])
+def test_api_export_writes_audit_entry_like_backend(call_api, method, fmt):
+    content, error, db = call_api("user", method, 1)
+    assert error is None
+    entry = db["audit"][-1]
+    assert entry["action"] == "dataset.export" and entry["entity_type"] == "dataset"
+    assert entry["entity_id"] == 1
+    assert entry["new_value"] == {"format": fmt, "version_number": 1, "bytes": len(content)}
 
 
 def test_api_export_follows_current_version(call_api):
@@ -82,11 +94,9 @@ def test_api_export_unknown_version_and_permissions(call_api):
 def test_page_shows_quality_and_components(run_view):
     at = run_view("export", role="user", state=CONTEXT)
     assert not at.exception
-    assert {m.label: m.value for m in at.metric} == {
-        "Phiên bản xuất": "Phiên bản 1",
-        "Số dòng": "30",
-        "Số cột": "6",
-    }
+    picker = at.selectbox(key="export_version")
+    assert picker.value == 1 and picker.label == "Phiên bản xuất"
+    assert any("30 dòng × 6 cột" in c.value for c in at.caption)
     assert len(at.get("plotly_chart")) == 1  # gauge
     progress = [p.text for p in at.get("progress")]
     assert len(progress) == 4 and "Đầy đủ" in progress[0] and "trọng số 30%" in progress[0]
@@ -107,6 +117,56 @@ def test_download_buttons_appear_only_after_creating_files(run_view):
     assert all(label.startswith("Tải xuống (") for label in labels)
 
 
+def test_page_lists_exactly_the_sheets_the_backend_exports(run_view):
+    at = run_view("export", role="user", state=CONTEXT)
+    text = " ".join(m.value for m in at.markdown)
+    for sheet in ("Dữ liệu", "Báo cáo chất lượng", "Lỗi đã phát hiện"):
+        assert f"Sheet “{sheet}”" in text
+    assert text.count("- Sheet “") == 3
+    assert any(c.value == "3 sheet" for c in at.caption)
+
+
+def test_download_file_name_follows_the_editable_name(run_view, monkeypatch):
+    served = []
+    original = st.download_button
+
+    def spy(label, data=None, **kwargs):
+        served.append({"data": data, **kwargs})
+        return original(label, data=data, **kwargs)
+
+    monkeypatch.setattr(st, "download_button", spy)
+    at = run_view("export", role="user", state=CONTEXT)
+    at.text_input(key="export_name_csv_1").set_value("khach_hang_sach.csv").run()
+    find_button(at, "Tạo tệp CSV").click().run()
+    csv = next(item for item in served if item["key"] == "download_csv")
+    assert csv["file_name"] == "khach_hang_sach.csv" and csv["mime"] == "text/csv"
+    assert csv["data"].startswith(b"\xef\xbb\xbf")  # UTF-8 có BOM
+
+
+def test_export_history_comes_from_audit_log_of_this_dataset(run_view):
+    at = run_view("export", role="user", state=CONTEXT)
+    assert any("Chưa có lần xuất nào" in c.value for c in at.caption)
+    find_button(at, "Tạo tệp CSV").click().run()
+    find_button(at, "Tạo tệp Excel").click().run()
+    history = next(d.value for d in at.dataframe if "Định dạng" in d.value.columns)
+    assert list(history["Định dạng"]) == ["Excel", "CSV"]  # mới nhất trước
+    assert set(history["Phiên bản"]) == {"v1"}
+
+
+def test_version_picker_exports_a_chosen_older_version(run_view, call_api):
+    steps = [{"op": "drop_duplicates", "column": None, "params": {}}]
+    _, _, db = call_api("user", "apply_rules", 1, steps)
+    at = run_view("export", role="user", state={**CONTEXT, "_mock_db": db})
+    picker = at.selectbox(key="export_version")
+    assert picker.value == 2 and picker.options[0].endswith("Hiện tại")
+    picker.set_value(1).run()
+    assert any("phiên bản gốc, chưa làm sạch" in i.value for i in at.info)
+    find_button(at, "Tạo tệp CSV").click().run()
+    assert at.session_state["work_context"]["exports"]["csv"]["version_id"] == 1
+    entry = at.session_state["_mock_db"]["audit"][-1]
+    assert entry["action"] == "dataset.export" and entry["new_value"]["version_number"] == 1
+
+
 def test_exported_file_matches_download_content(run_view):
     at = run_view("export", role="user", state=CONTEXT)
     find_button(at, "Tạo tệp CSV").click().run()
@@ -124,7 +184,7 @@ def test_stale_file_hidden_when_version_changes(run_view, call_api):
     context = dict(at.session_state["work_context"])
     at2 = run_view("export", role="user", state={"work_context": context, "_mock_db": db})
     assert not _downloads(at2)  # file của phiên bản 1 không còn hiển thị
-    assert {m.label: m.value for m in at2.metric}["Phiên bản xuất"] == "Phiên bản 2"
+    assert at2.selectbox(key="export_version").value == 2  # mặc định phiên bản hiện tại
     assert not any("phiên bản gốc" in i.value for i in at2.info)
 
 

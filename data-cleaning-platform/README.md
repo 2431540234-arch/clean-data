@@ -160,7 +160,7 @@ khá sạch nên **chỉ dùng cho phần Mapping cột**: nó gần như không
 
 ## Reset trước ngày bảo vệ
 
-Đưa máy demo về trạng thái sạch (xóa mọi dự án, dataset, nhật ký; nạp lại 2 tài khoản mẫu). **Lệnh này xóa vĩnh viễn dữ liệu** của compose project, hãy tự chạy khi đã chắc chắn:
+Đưa máy demo về trạng thái sạch: xóa mọi dự án, dataset, phiên bản, nhật ký; nạp lại 2 tài khoản mẫu. **Lệnh này xóa vĩnh viễn dữ liệu demo**, hãy tự chạy khi đã chắc chắn:
 
 ```bash
 # Windows (PowerShell)
@@ -169,7 +169,18 @@ powershell -ExecutionPolicy Bypass -File scripts/reset-demo.ps1
 bash scripts/reset-demo.sh
 ```
 
-Script hỏi xác nhận (gõ `RESET`; thêm `-Yes` hoặc `-y` để bỏ qua), rồi chạy `docker compose down -v`, `up -d --build`, `alembic upgrade head` và `scripts/seed.py`. Nếu chạy backend ngoài Docker, tự xóa DB rồi chạy lại Bước 3.
+Script chỉ làm bốn việc, không build lại image và không đụng container frontend:
+
+1. Dừng container backend (không xóa).
+2. Trong container Postgres, database `data_cleaning`: `DROP SCHEMA public CASCADE; CREATE SCHEMA public;` (không xóa volume `dcp_postgres_data`).
+3. Xóa **nội dung** volume `dcp_storage` (file dataset), không xóa volume nào khác.
+4. Bật lại backend, chạy `alembic upgrade head` rồi `scripts/seed.py`.
+
+Phải gõ `RESET` để tiếp tục (thêm `-Yes` hoặc `-y` để bỏ qua câu hỏi này).
+
+Nếu backend chạy **ngoài Docker** (file nằm ở `backend/data/storage` trên máy), thêm `-HostStorage` (`--host-storage` với bash) để script dọn luôn nội dung thư mục đó. Việc này có câu xác nhận riêng (gõ `XOA-FILE`) và `-Yes` không bỏ qua được câu đó. Script chỉ động tới đúng thư mục `backend/data/storage` trong repo.
+
+Chạy trên một compose project khác (ví dụ để thử): `-Project dcp-test -ComposeFile <file compose>` (`-p`, `-f` với bash).
 
 ## Xử lý sự cố
 

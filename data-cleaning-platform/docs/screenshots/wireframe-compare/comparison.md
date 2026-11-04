@@ -6,6 +6,8 @@
 |---|---|---|
 | Trang chủ · 1440×900 | Có bảng dataset gần đây của project đang chọn và hoạt động mới nhất của tài khoản; không hiển thị các số KPI minh họa trong wireframe. Ảnh: [`compare-home-1440.png`](./compare-home-1440.png). | Dataset và hoạt động lấy từ backend thật. Backend không lưu tiến độ workflow theo từng bước, nên không tự suy diễn tiến độ hoặc số liệu. |
 | Trang chủ · 375×812 | Header và stepper thu gọn theo chiều rộng; các bảng nằm trong khung nội dung và trang cuộn dọc. Wireframe bên trái là crop từ bản desktop. Ảnh: [`compare-home-375.png`](./compare-home-375.png). | Wireframe không có biến thể mobile; ảnh crop chỉ là tham chiếu nội dung, không dùng làm chuẩn responsive. |
+| Dự án · 1440×900 | Có KPI, tìm kiếm/lọc, thẻ dự án với thao tác Mở/Sửa/Xóa, và dataset của project đang chọn. Ảnh: [`compare-projects-1440.png`](./compare-projects-1440.png). | Dữ liệu lấy từ API. Backend không lưu trạng thái “bước tiếp theo” cho từng dataset; điểm KPI ghi rõ là trung bình các điểm trung bình theo dự án, không coi là trung bình toàn dataset. |
+| Dự án · 375×812 | Thẻ KPI và nội dung xếp dọc; menu ngang cuộn trong vùng riêng, không tràn toàn trang. Wireframe bên trái là crop từ desktop. Ảnh: [`compare-projects-375.png`](./compare-projects-375.png). | Wireframe không có biến thể mobile; các hành động hiển thị bằng widget Streamlit thật. |
 | Đăng nhập · 1440×900 | Bố cục hai cột và card đăng nhập bám sát wireframe; ứng dụng không điền sẵn email hoặc hiện lỗi đăng nhập mẫu. Ảnh: [`compare-login-1440.png`](./compare-login-1440.png). | Không dùng dữ liệu minh họa trong wireframe như dữ liệu thật; banner dữ liệu mẫu chỉ hiện khi bật chế độ mock. |
 | Đăng nhập · 375×812 | Ứng dụng xếp phần giới thiệu phía trên form, không tràn ngang; ảnh: [`compare-login-375.png`](./compare-login-375.png). Wireframe bên phải là crop từ bản desktop. | Wireframe không có biến thể mobile; crop chỉ thể hiện phần desktop nằm trong vùng 375px, không dùng làm chuẩn responsive. |
 | Header admin · 1440×1000 | Đủ 7 mục menu trên cùng một hàng, không cuộn; ảnh chụp: [`admin-menu-1440.png`](./admin-menu-1440.png). | Menu dùng hết chiều rộng khả dụng ở desktop; nhãn không bị cắt. |
@@ -20,8 +22,10 @@
 
 - Ứng dụng: `login-1440.png`, `login-375.png`, `cleaning-app-1440.png`, `cleaning-app-375.png`, `rule-library-app-1440.png`, `rule-library-app-375.png`.
 - Trang chủ: `home-app-1440.png`, `home-app-375.png`, `compare-home-1440.png`, `compare-home-375.png`.
+- Dự án: `projects-app-1440.png`, `projects-app-375.png`, `compare-projects-1440.png`, `compare-projects-375.png`.
+- Wireframe Trang chủ / Dự án: `wireframe-home-1440.png`, `wireframe-projects-1440.png`.
 - Wireframe desktop: `wireframe-login-1440.png`, `wireframe-cleaning-1440.png`, `wireframe-rule-library-1440.png`.
-- Tham chiếu crop 375px: `wireframe-login-375.png`, `wireframe-cleaning-375.png`, `wireframe-rule-library-375.png`, `wireframe-home-375.png`.
+- Tham chiếu crop 375px: `wireframe-login-375.png`, `wireframe-cleaning-375.png`, `wireframe-rule-library-375.png`, `wireframe-home-375.png`, `wireframe-projects-375.png`.
 - Ảnh ghép đối chiếu: `compare-login-1440.png`, `compare-login-375.png`, `compare-cleaning-1440.png`, `compare-cleaning-375.png`, `compare-rule-library-1440.png`, `compare-rule-library-375.png`.
 
 Các con số xuất hiện trong wireframe là dữ liệu minh họa và không được dùng làm kết quả kiểm thử hay số liệu thực của ứng dụng.

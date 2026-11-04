@@ -69,8 +69,18 @@ jobs:
           alembic check
           alembic downgrade base
 
+      # Ghi tên các test lỗi thành annotation của job để xem được ngay trên trang kết quả (không cần mở log).
       - name: Run tests
-        run: pytest
+        shell: bash
+        run: |
+          set +e
+          pytest -q --tb=short -rfE 2>&1 | tee pytest.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            summary=$(grep -E '^(FAILED|ERROR) |^E  ' pytest.log | head -25 | cut -c1-300 | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=pytest lỗi::${summary}"
+          fi
+          exit $status
 
   frontend:
     name: frontend

@@ -438,6 +438,19 @@
 .dc-breadcrumb-title {
     font-weight: 600;
     color: #0f172a;
+    white-space: nowrap;
+}
+
+/* Thông tin file sau khi tải lên: số liệu nhỏ hơn để "2,0 KB" không bị cắt thành "2,0 …" */
+.st-key-dc-file-facts [data-testid="stMetricValue"] {
+    font-size: 1.35rem;
+}
+
+.st-key-dc-file-facts [data-testid="stMetricValue"] > div {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
 }
 
 .dc-header-user-pill {

@@ -59,7 +59,6 @@ def _do_upload(project: dict[str, Any], uploaded: Any) -> None:
             st.error(error.detail, icon=":material/error:")
         return
     _store_result(result, project)
-    set_flash(f"Đã tải lên “{uploaded.name}”.")
     st.rerun()
 
 
@@ -103,9 +102,10 @@ def _show_result(result: dict[str, Any]) -> None:
         facts.append(("Bảng mã", dataset.get("encoding") or "—"))
     with section("Thông tin file"):
         st.markdown(f"**Tên file:** {dataset['original_filename']}")
-        for column, (label, value) in zip(st.columns(len(facts)), facts, strict=True):
-            with column:
-                metric_card(label, value)
+        with st.container(key="dc-file-facts"):
+            for column, (label, value) in zip(st.columns(len(facts)), facts, strict=True):
+                with column:
+                    metric_card(label, value)
 
     sheet_names = result.get("sheet_names") or []
     if len(sheet_names) > 1:

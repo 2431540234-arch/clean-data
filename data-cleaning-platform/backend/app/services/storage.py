@@ -37,9 +37,19 @@ def get_backend_name() -> str:
 
 
 def _normalize_key(storage_path: str) -> str:
-    """Chuẩn hóa khóa; từ chối khóa rỗng, tuyệt đối hoặc chứa '..'."""
+    """Chuẩn hóa khóa; từ chối khóa rỗng, tuyệt đối, chứa '..' hoặc chứa ':'.
+
+    Khóa thật luôn dạng datasets/{id}/..., không có ':'. Cấm ':' để cùng một khóa bị từ chối
+    giống nhau ở mọi hệ điều hành (ổ đĩa kiểu C:, hoặc luồng kiểu file:stream của NTFS).
+    """
     key = PurePosixPath(storage_path.replace("\\", "/"))
-    if not storage_path or key.is_absolute() or ".." in key.parts or key.parts[:1] == ("",):
+    if (
+        not storage_path
+        or ":" in storage_path
+        or key.is_absolute()
+        or ".." in key.parts
+        or key.parts[:1] == ("",)
+    ):
         raise StorageError("Đường dẫn lưu trữ không hợp lệ.")
     return str(key)
 

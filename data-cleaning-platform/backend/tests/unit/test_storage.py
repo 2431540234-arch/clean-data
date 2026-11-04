@@ -35,7 +35,17 @@ def test_missing_file_raises():
 
 
 @pytest.mark.parametrize(
-    "key", ["../ngoai.txt", "datasets/../../ngoai.txt", "/etc/passwd", "", "a/../../b", "C:/x"]
+    "key",
+    [
+        "../ngoai.txt",
+        "datasets/../../ngoai.txt",
+        "/etc/passwd",
+        "",
+        "a/../../b",
+        "C:/x",
+        "c:x",
+        "datasets/1/a:b",
+    ],
 )
 def test_unsafe_keys_are_rejected(key):
     with pytest.raises(storage.StorageError):

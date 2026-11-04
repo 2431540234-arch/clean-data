@@ -5,6 +5,7 @@ backend thật. Đây là nơi DUY NHẤT chọn giữa mock và thật: các tr
 """
 
 import contextlib
+import hashlib
 import os
 from collections.abc import Callable
 from typing import Any
@@ -203,23 +204,37 @@ def upload_dataset(
     )
 
 
-def start_chunked_upload(token: str, project_id: int, filename: str, size: int) -> dict[str, Any]:
-    """Mở phiên tải CSV lớn theo từng phần: {upload_id, part_size_bytes, max_bytes, ...}."""
+def start_chunked_upload(
+    token: str, project_id: int, filename: str, size: int, sha256: str | None = None
+) -> dict[str, Any]:
+    """Mở phiên tải CSV lớn theo từng phần: {upload_id, part_size_bytes, max_bytes, ...}.
+
+    `sha256` (hex) là mã SHA-256 của cả file để backend kiểm tra sau khi ghép các phần.
+    """
+    body: dict[str, Any] = {"filename": filename, "size": size}
+    if sha256 is not None:
+        body["sha256"] = sha256
     return request(
         "POST",
         "/api/v1/datasets/uploads",
         token=token,
         params={"project_id": project_id},
-        json={"filename": filename, "size": size},
+        json=body,
     )
 
 
-def send_upload_part(token: str, upload_id: str, index: int, content: bytes) -> dict[str, Any]:
-    """Gửi phần thứ `index` (từ 0) của một phiên; gửi lại cùng số thì ghi đè."""
+def send_upload_part(
+    token: str, upload_id: str, index: int, content: bytes, sha256: str | None = None
+) -> dict[str, Any]:
+    """Gửi phần thứ `index` (từ 0) của một phiên; gửi lại cùng số thì ghi đè.
+
+    `sha256` (hex) là mã SHA-256 của phần này; backend từ chối phần không khớp.
+    """
     return request(
         "PUT",
         f"/api/v1/datasets/uploads/{upload_id}/parts/{index}",
         token=token,
+        params={"sha256": sha256} if sha256 is not None else None,
         files={"file": ("part", content, "application/octet-stream")},
         timeout=120.0,
     )
@@ -255,7 +270,9 @@ def upload_dataset_in_parts(
 
     `on_progress(đã_gửi, tổng_phần)` được gọi sau mỗi phần. Lỗi giữa chừng thì hủy phiên đã mở.
     """
-    session = start_chunked_upload(token, project_id, filename, len(content))
+    session = start_chunked_upload(
+        token, project_id, filename, len(content), hashlib.sha256(content).hexdigest()
+    )
     upload_id, part_size = session["upload_id"], session["part_size_bytes"]
     total = -(-len(content) // part_size)
     try:
@@ -263,7 +280,9 @@ def upload_dataset_in_parts(
             chunk = content[index * part_size : (index + 1) * part_size]
             for attempt in range(_PART_RETRIES + 1):
                 try:
-                    send_upload_part(token, upload_id, index, chunk)
+                    send_upload_part(
+                        token, upload_id, index, chunk, sha256=hashlib.sha256(chunk).hexdigest()
+                    )
                     break
                 except APIConnectionError:
                     if attempt == _PART_RETRIES:

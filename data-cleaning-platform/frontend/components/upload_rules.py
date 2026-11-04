@@ -31,3 +31,20 @@ def size_problem(name: str, size: int) -> str | None:
 def use_parts(name: str, size: int) -> bool:
     """CSV lớn hơn ngưỡng thì tải theo từng phần; Excel và file nhỏ tải một lần."""
     return is_csv(name) and size > CHUNK_THRESHOLD_MB * _MB
+
+
+# Một sheet Excel có 1.048.576 dòng, trừ 1 dòng tiêu đề (khớp backend services/export.py).
+EXCEL_MAX_DATA_ROWS = 1_048_575
+
+
+def excel_row_problem(rows: int) -> str | None:
+    """Thông báo nếu `rows` dòng dữ liệu không vừa một sheet Excel (gợi ý CSV), ngược lại None."""
+    if rows <= EXCEL_MAX_DATA_ROWS:
+        return None
+    shown = f"{rows:,}".replace(",", ".")
+    limit = f"{EXCEL_MAX_DATA_ROWS:,}".replace(",", ".")
+    return (
+        f"Phiên bản này có {shown} dòng, vượt giới hạn {limit} dòng dữ liệu của một sheet Excel. "
+        "Hãy xuất CSV để lấy đủ dữ liệu (CSV không giới hạn số dòng); "
+        "hệ thống không tự cắt dữ liệu."
+    )

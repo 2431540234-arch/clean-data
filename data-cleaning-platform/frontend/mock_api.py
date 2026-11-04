@@ -10,6 +10,7 @@ Tài khoản mẫu:
     user@example.com  / User12345   (người dùng thường)
 """
 
+import hashlib
 import io
 import json
 import os
@@ -610,6 +611,9 @@ def _start_chunked_upload(call: Call) -> dict[str, Any]:
     _get_project(project_id, call.user)
     body = call.json or {}
     filename, size = str(body.get("filename", "")), int(body.get("size") or 0)
+    sha256 = body.get("sha256")
+    if sha256 is not None and not re.fullmatch(r"[0-9a-fA-F]{64}", str(sha256)):
+        raise APIError(422, "Mã SHA-256 không hợp lệ (cần 64 ký tự thập lục phân).")
     if not filename.lower().endswith(".csv"):
         raise APIError(422, "Tải theo từng phần chỉ hỗ trợ file CSV.")
     if size <= 0:
@@ -622,6 +626,8 @@ def _start_chunked_upload(call: Call) -> dict[str, Any]:
         "project_id": project_id,
         "filename": filename,
         "size": size,
+        "sha256": str(sha256).lower() if sha256 else None,
+        "part_size": mock_data.UPLOAD_PART_MB * 1024 * 1024,
         "parts": {},
     }
     return {
@@ -639,8 +645,13 @@ def _upload_part(call: Call) -> dict[str, Any]:
     content = (call.files or {}).get("file", (None, b""))[1]
     if not content:
         raise APIError(422, "Phần tải lên rỗng.")
-    if len(content) > mock_data.UPLOAD_PART_MB * 1024 * 1024:
-        raise APIError(413, f"Mỗi phần tối đa {mock_data.UPLOAD_PART_MB} MB.")
+    if len(content) > session["part_size"]:
+        raise APIError(413, f"Mỗi phần tối đa {session['part_size'] // (1024 * 1024)} MB.")
+    expected = call.params.get("sha256")
+    if expected and hashlib.sha256(content).hexdigest() != str(expected).lower():
+        raise APIError(
+            422, f"Phần {index} bị hỏng khi truyền (mã SHA-256 không khớp); hãy gửi lại phần này."
+        )
     session["parts"][index] = content
     return {"index": index, "received_bytes": sum(len(p) for p in session["parts"].values())}
 
@@ -653,7 +664,19 @@ def _complete_chunked_upload(call: Call) -> dict[str, Any]:
     missing = [i for i in range(count) if i not in session["parts"]]
     if count < 1 or missing:
         raise APIError(422, f"Còn thiếu {len(missing)} phần (số thứ tự: {missing[:10]}).")
+    for index in range(count - 1):  # mọi phần trừ phần cuối phải đúng cỡ đã chốt
+        size = len(session["parts"][index])
+        if size != session["part_size"]:
+            raise APIError(
+                422, f"Phần {index} có {size} byte, cần đúng {session['part_size']} byte."
+            )
     content = b"".join(session["parts"][i] for i in range(count))
+    if session["sha256"] and hashlib.sha256(content).hexdigest() != session["sha256"]:
+        raise APIError(
+            422,
+            "Nội dung sau khi ghép không khớp mã SHA-256 của file gốc "
+            "(các phần có thể bị đổi thứ tự hoặc hỏng); hãy tải lại.",
+        )
     if len(content) != session["size"]:
         raise APIError(
             422, "Dung lượng sau khi ghép không khớp dung lượng đã khai báo; hãy tải lại."
@@ -1069,6 +1092,11 @@ def _export_excel(call: Call) -> bytes:
     state = db()
     version = _get_version(int(call.args[0]), call.user)
     frame = state["frames"][version["id"]]
+    from components.upload_rules import excel_row_problem
+
+    problem = excel_row_problem(len(frame))
+    if problem:
+        raise APIError(422, problem)
     report = mock_profiling.quality_report(frame, version["id"], 0, _now())
     summary = pd.DataFrame(
         [
@@ -1164,7 +1192,7 @@ _AUDIT_RULES: dict[str, Callable[[Call, Any], tuple]] = {
         "auth.change_password", "user", c.user["id"], None, None, None
     ),
     "_export_csv": lambda c, r: _export_audit(c, r, "csv"),
-    "_export_excel": lambda c, r: _export_audit(c, r, "excel"),
+    "_export_excel": lambda c, r: _export_audit(c, r, "xlsx"),
 }  # fmt: skip
 
 

@@ -158,6 +158,11 @@ Ghi chú: `khach_hang_ban.csv` (và `nhan_su_ban.xlsx`, cùng cấu trúc, có n
 khá sạch nên **chỉ dùng cho phần Mapping cột**: nó gần như không sinh gợi ý làm sạch. Ảnh chụp từng bước nằm
 ở [docs/screenshots/real-backend/](docs/screenshots/real-backend/README.md).
 
+## CI và deploy
+
+- **CI** (`../.github/workflows/test.yml`, ở thư mục gốc repo): chạy mỗi lần push/PR, gồm job `backend` (ruff, black, kiểm tra migration, pytest, có Postgres) và job `frontend` (ruff check, ruff format --check, pytest).
+- **Deploy**: `.github/workflows/deploy.yml` (trong thư mục này) **chưa được kích hoạt**: nó nằm ngoài `.github/workflows/` của thư mục gốc repo nên GitHub không chạy, và nội dung mới chỉ là các bước `TODO`. Muốn dùng: chuyển file lên `../.github/workflows/`, viết các bước build/push image (GHCR hoặc Docker Hub) và lệnh deploy thật (SSH hoặc API của nền tảng), rồi khai báo secret tương ứng trong GitHub Settings.
+
 ## Checklist ngày bảo vệ
 
 Làm theo thứ tự, tick từng mục:

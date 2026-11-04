@@ -31,6 +31,10 @@ services:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/data_cleaning
     ports:
       - "8000:8000"
+    volumes:
+      # File dataset (driver storage local) nằm ở /app/data/storage: phải là volume để không mất
+      # khi container backend bị tạo lại, vì bản ghi dataset vẫn còn trong Postgres.
+      - dcp_storage:/app/data/storage
     depends_on:
       postgres:
         condition: service_healthy
@@ -67,3 +71,4 @@ services:
 
 volumes:
   dcp_postgres_data:
+  dcp_storage:

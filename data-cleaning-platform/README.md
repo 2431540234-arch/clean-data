@@ -95,6 +95,18 @@ Frontend <http://localhost:8501>, backend <http://localhost:8000/docs>.
 
 Bản giao diện mới nhận ra bằng: menu ngang có đủ **Trang chủ · Dự án · Làm sạch dữ liệu · Thư viện quy tắc · Nhật ký · Tài khoản** (thêm **Quản trị** với admin), và thanh 6 bước chỉ hiện ở các trang của quy trình làm sạch.
 
+### Dữ liệu được lưu ở đâu
+
+| Dữ liệu | Chạy bằng Docker Compose | Backend chạy ngoài Docker |
+|---|---|---|
+| Bản ghi (người dùng, dự án, dataset, phiên bản, nhật ký) | Volume `dcp_postgres_data` (Postgres) | Postgres của bạn (`DATABASE_URL`) |
+| File dataset (Parquet) | Volume `dcp_storage`, gắn vào `/app/data/storage` trong container backend | Thư mục `backend/data/storage` trên máy |
+
+Hai nơi này phải đi cùng nhau: DB giữ bản ghi, thư mục lưu trữ giữ nội dung file. Nhờ hai volume,
+`docker compose up -d --build backend` (tạo lại container) không làm mất dữ liệu. Chỉ `docker compose down -v`
+mới xóa cả hai volume. Nếu dùng S3 (đặt `STORAGE_ENDPOINT` thật) thì file nằm ở bucket, không ở `dcp_storage`.
+Muốn làm sạch dữ liệu demo, dùng script reset ở mục "Reset trước ngày bảo vệ" thay vì xóa tay một trong hai nơi.
+
 ### Kiểm thử
 
 ```bash

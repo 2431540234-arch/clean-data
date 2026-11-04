@@ -114,7 +114,7 @@ cd frontend && pytest           # không cần backend (dùng dữ liệu mẫu)
 | 5 | Lịch sử phiên bản | Thử hoàn tác (undo) và làm lại (redo) | — |
 | 6 | Tổng quan dữ liệu | Điểm chất lượng tăng (≈ 98,4), số dòng còn 29 | — |
 | 7 | Xuất dữ liệu | Tải CSV và Excel (3 sheet: Dữ liệu, Báo cáo chất lượng, Lỗi đã phát hiện) | — |
-| 8 | Tải lên → Mapping cột | Tải file có **tiêu đề tiếng Việt khác chuẩn**, bấm *Điền ví dụ* → *Gợi ý mapping* → *Xác nhận mapping* (6/7 cột khớp) | **`khach_hang_tieu_de_khac.csv`** |
+| 8 | Tải lên → Mapping cột | Tải file có **tiêu đề tiếng Việt khác chuẩn**, bấm *Điền ví dụ* → *Gợi ý mapping* → *Xác nhận và sang bước 4* (6/7 cột khớp) | **`khach_hang_tieu_de_khac.csv`** |
 | 9 | Tài khoản | Đổi mật khẩu: vẫn ở lại trang, hiện thông báo thành công | — |
 | 10 | Đăng nhập admin (`admin@example.com`) | Quản trị người dùng, Thống kê hệ thống, Nhật ký (bật *Xem toàn hệ thống*) | — |
 

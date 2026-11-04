@@ -233,6 +233,8 @@ Nếu backend chạy **ngoài Docker** (file nằm ở `backend/data/storage` tr
 
 Chạy trên một compose project khác (ví dụ để thử): `-Project dcp-test -ComposeFile <file compose>` (`-p`, `-f` với bash).
 
+**Sao lưu và khôi phục (nên sao lưu trước khi reset):** sao lưu bằng `docker exec dcp_postgres pg_dump -U postgres -d data_cleaning -Fc -f /tmp/dcp.dump` và `docker exec dcp_backend tar czf /tmp/storage.tar.gz -C /app/data/storage .`, rồi `docker cp` hai tệp ra thư mục ngoài repo. Khôi phục: `docker cp` hai tệp vào lại container, chạy `docker compose stop backend`, `docker exec dcp_postgres pg_restore -U postgres -d data_cleaning --clean --if-exists /tmp/dcp.dump`, `docker compose start backend`, rồi `docker exec dcp_backend tar xzf /tmp/storage.tar.gz -C /app/data/storage`. Bản sao lưu ngày 2026-11-04 nằm ở C:/Users/Dell/Downloads/dcp-backup-2026-11-04/ (ngoài repo, không commit).
+
 ## Xử lý sự cố
 
 | Triệu chứng | Nguyên nhân thường gặp | Cách xử lý |

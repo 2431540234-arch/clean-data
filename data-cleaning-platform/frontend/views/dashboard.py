@@ -18,6 +18,7 @@ from components.ui import (
     safe_call,
     section,
 )
+from components.work_context import project_context
 from state import get_context, get_current_user, get_token, set_context, set_flash
 
 _COLUMNS = 3
@@ -62,21 +63,7 @@ def _create_dialog() -> None:
 
 def _open_project(project: dict[str, Any], *, to_upload: bool = False) -> None:
     """Chọn project làm ngữ cảnh để nạp danh sách dataset bên dưới."""
-    set_context(
-        project_id=project["id"],
-        project_name=project["name"],
-        dataset_id=None,
-        dataset_name=None,
-        version_id=None,
-        upload_result=None,
-        rule_queue=[],
-        rule_queue_version_id=None,
-        preview=None,
-        pending_steps=None,
-        pending_version_id=None,
-        last_applied=None,
-        mapping=None,
-    )
+    set_context(**project_context(project))
     if to_upload:
         st.switch_page(get_page("upload").file)
     else:

@@ -14,6 +14,7 @@ import streamlit as st
 from api_client import APIError, list_projects
 from components.navigation import FLOW_KEYS, HEADER_NAV_KEYS, get_page
 from components.ui import badge_html, safe_page_link
+from components.work_context import project_context
 from state import (
     get_context,
     get_current_user,
@@ -32,19 +33,7 @@ def _change_project(project_names: dict[int, str]) -> None:
     if selected_project_id == context.get("project_id"):
         return
     set_context(
-        project_id=selected_project_id,
-        project_name=project_names[selected_project_id],
-        dataset_id=None,
-        dataset_name=None,
-        version_id=None,
-        upload_result=None,
-        rule_queue=[],
-        rule_queue_version_id=None,
-        preview=None,
-        pending_steps=None,
-        pending_version_id=None,
-        last_applied=None,
-        mapping=None,
+        **project_context({"id": selected_project_id, "name": project_names[selected_project_id]})
     )
 
 
@@ -101,19 +90,9 @@ def render_header(current_page_key: str = "home") -> None:
                 if active_project_id not in options and not context.get("dataset_id"):
                     active_project_id = project_ids[0]
                     set_context(
-                        project_id=active_project_id,
-                        project_name=options[active_project_id],
-                        dataset_id=None,
-                        dataset_name=None,
-                        version_id=None,
-                        upload_result=None,
-                        rule_queue=[],
-                        rule_queue_version_id=None,
-                        preview=None,
-                        pending_steps=None,
-                        pending_version_id=None,
-                        last_applied=None,
-                        mapping=None,
+                        **project_context(
+                            {"id": active_project_id, "name": options[active_project_id]}
+                        )
                     )
                 current_index = (
                     project_ids.index(active_project_id) if active_project_id in options else 0

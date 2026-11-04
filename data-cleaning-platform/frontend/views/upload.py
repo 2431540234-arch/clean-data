@@ -18,6 +18,7 @@ from components.ui import (
     safe_call,
     section,
 )
+from components.work_context import project_context, uploaded_dataset_context
 from state import get_context, get_token, set_context, set_flash
 
 MAX_UPLOAD_MB = 50  # khớp backend MAX_UPLOAD_MB và server.maxUploadSize trong config.toml
@@ -27,16 +28,7 @@ _NONCE_KEY = "upload_nonce"  # đổi key của file_uploader để xóa file đ
 
 def _store_result(result: dict[str, Any], project: dict[str, Any] | None) -> None:
     """Lưu kết quả tải lên và đặt dataset vừa tải làm ngữ cảnh làm việc."""
-    dataset = result["dataset"]
-    values: dict[str, Any] = {
-        "dataset_id": dataset["id"],
-        "dataset_name": dataset["original_filename"],
-        "version_id": dataset["current_version_id"] or result["first_version"]["id"],
-        "upload_result": result,
-    }
-    if project is not None:
-        values.update(project_id=project["id"], project_name=project["name"])
-    set_context(**values)
+    set_context(**uploaded_dataset_context(result, project))
 
 
 def _do_upload(project: dict[str, Any], uploaded: Any) -> None:
@@ -66,21 +58,7 @@ def _change_upload_project(project_names: dict[int, str]) -> None:
     project_id = st.session_state["upload_project"]
     if project_id == get_context().get("project_id"):
         return
-    set_context(
-        project_id=project_id,
-        project_name=project_names[project_id],
-        dataset_id=None,
-        dataset_name=None,
-        version_id=None,
-        upload_result=None,
-        rule_queue=[],
-        rule_queue_version_id=None,
-        preview=None,
-        pending_steps=None,
-        pending_version_id=None,
-        last_applied=None,
-        mapping=None,
-    )
+    set_context(**project_context({"id": project_id, "name": project_names[project_id]}))
 
 
 def _preview_frame(rows: list[dict[str, Any]]) -> pd.DataFrame:

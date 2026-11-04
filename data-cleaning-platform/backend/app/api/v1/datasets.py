@@ -108,7 +108,7 @@ def start_chunked_upload(
     filename = dataset_service.sanitize_filename(body.filename)
     if file_type_from_name(filename) != "csv":
         raise ValidationAppError("Tải theo từng phần chỉ hỗ trợ file CSV.")
-    session = upload_sessions.create(current_user.id, project_id, filename, body.size)
+    session = upload_sessions.create(current_user.id, project_id, filename, body.size, body.sha256)
     return UploadSessionOut(
         upload_id=session.upload_id,
         part_size_bytes=upload_sessions.part_bytes(),
@@ -122,12 +122,13 @@ async def upload_part(
     upload_id: str,
     index: int,
     file: UploadFile,
+    sha256: str | None = Query(None, description="SHA-256 của phần này (hex 64 ký tự)"),
     current_user: User = Depends(get_current_user),
 ) -> UploadPartOut:
     """Gửi phần thứ `index` (từ 0) của phiên; gửi lại cùng số thì ghi đè, thứ tự gửi tùy ý."""
     session = upload_sessions.get(upload_id, current_user.id)
     content = await _read_part(file)
-    received = upload_sessions.save_part(session, index, content)
+    received = upload_sessions.save_part(session, index, content, sha256)
     return UploadPartOut(index=index, received_bytes=received)
 
 

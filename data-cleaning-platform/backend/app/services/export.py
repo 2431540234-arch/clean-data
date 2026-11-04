@@ -9,10 +9,13 @@ import io
 
 import pandas as pd
 
+from app.core.exceptions import ValidationAppError
 from app.services.profiling.values import is_number
 
 _FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
 _MAX_SHEET_NAME = 31
+# Một sheet Excel có 1.048.576 dòng, trừ 1 dòng tiêu đề. Vượt thì từ chối, không tự cắt dữ liệu.
+EXCEL_MAX_DATA_ROWS = 1_048_575
 
 
 def _neutralize(value: object) -> object:
@@ -30,6 +33,17 @@ def neutralize_formulas(df: pd.DataFrame) -> pd.DataFrame:
     return safe
 
 
+def ensure_fits_excel(sheet_name: str, data_rows: int) -> None:
+    """Từ chối nếu `data_rows` dòng dữ liệu không vừa một sheet Excel; gợi ý xuất CSV."""
+    if data_rows > EXCEL_MAX_DATA_ROWS:
+        shown = f"{data_rows:,}".replace(",", ".")
+        limit = f"{EXCEL_MAX_DATA_ROWS:,}".replace(",", ".")
+        raise ValidationAppError(
+            f"Sheet “{sheet_name}” có {shown} dòng, vượt giới hạn {limit} dòng dữ liệu của Excel. "
+            "Hãy xuất CSV để lấy đủ dữ liệu (CSV không giới hạn số dòng)."
+        )
+
+
 def export_to_csv_bytes(df: pd.DataFrame) -> bytes:
     """Xuất DataFrame ra bytes CSV UTF-8-BOM (để Excel tiếng Việt mở không lỗi font)."""
     buffer = io.StringIO()
@@ -43,6 +57,8 @@ def export_to_excel_bytes(sheets: dict[str, pd.DataFrame]) -> bytes:
     Args:
         sheets: mapping tên sheet -> DataFrame, ví dụ {"Dữ liệu": df, "Báo cáo chất lượng": report}.
     """
+    for name, frame in sheets.items():
+        ensure_fits_excel(name, len(frame))
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         for name, frame in sheets.items():

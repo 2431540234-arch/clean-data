@@ -68,10 +68,11 @@ class DatasetRowsPage(BaseModel):
 
 
 class UploadStartIn(BaseModel):
-    """Mở phiên tải lên theo từng phần: tên file và tổng dung lượng (byte) của file gốc."""
+    """Mở phiên tải lên theo từng phần: tên file, tổng dung lượng (byte) và SHA-256 (tùy chọn)."""
 
     filename: str = Field(min_length=1, max_length=255)
     size: int = Field(gt=0)
+    sha256: str | None = Field(default=None, description="SHA-256 của cả file (hex 64 ký tự)")
 
 
 class UploadSessionOut(BaseModel):

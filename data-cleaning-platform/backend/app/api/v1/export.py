@@ -16,7 +16,7 @@ from app.models.export import Export
 from app.models.user import User
 from app.services import access, profiling_service, quality_service
 from app.services.audit import log_action
-from app.services.export import export_to_csv_bytes, export_to_excel_bytes
+from app.services.export import ensure_fits_excel, export_to_csv_bytes, export_to_excel_bytes
 from app.services.frames import load_version_frame
 from app.services.report import build_issues_dataframe, build_quality_report_dataframe
 
@@ -80,6 +80,7 @@ def _build_csv(version: DatasetVersion) -> bytes:
 
 
 def _build_excel(db: Session, version: DatasetVersion) -> bytes:
+    ensure_fits_excel("Dữ liệu", version.row_count)  # báo sớm, trước khi nạp cả bảng vào bộ nhớ
     report = quality_service.get_or_compute(db, version)
     issues = profiling_service.list_issues(db, version.id)
     return export_to_excel_bytes(

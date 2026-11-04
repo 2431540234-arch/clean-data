@@ -309,7 +309,7 @@ def test_regenerate_button_exists_after_generation(run_view):
 
 
 def test_error_states(run_view, monkeypatch):
-    def boom(token, version_id):
+    def boom(token, version_id, status_out=None):
         raise api_client.APIError(500, "Máy chủ gặp sự cố hoặc chức năng này chưa sẵn sàng.")
 
     monkeypatch.setattr(api_client, "list_suggestions", boom)
@@ -322,7 +322,7 @@ def test_error_states(run_view, monkeypatch):
 def test_generate_failure_keeps_page_usable(run_view, monkeypatch):
     at = _open(run_view)
 
-    def boom(token, version_id):
+    def boom(token, version_id, status_out=None):
         raise api_client.APIError(500, "Máy chủ gặp sự cố hoặc chức năng này chưa sẵn sàng.")
 
     monkeypatch.setattr(api_client, "generate_suggestions", boom)

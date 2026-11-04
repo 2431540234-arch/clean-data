@@ -895,6 +895,23 @@ def _get_quality(call: Call) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+# Trạng thái AI mà mock giả lập ("disabled" | "used" | "fallback"); mặc định như máy chưa có khóa.
+AI_MODE = "disabled"
+
+
+def ai_status(method: str, path: str, result: Any) -> str | None:
+    """Giá trị header X-AI-Status mà backend thật sẽ trả cho yêu cầu này (None nếu không có)."""
+    if method == "POST" and path.endswith("/suggestions/generate"):
+        return AI_MODE
+    if method == "GET" and "/suggestions/by-version/" in path:
+        if AI_MODE == "disabled":
+            return "disabled"
+        return "used" if AI_MODE == "used" else None
+    if method == "POST" and "/mapping/" in path and path.endswith("/suggest"):
+        return AI_MODE if isinstance(result, dict) and None in result.values() else None
+    return None
+
+
 @route("POST", r"/mapping/(\d+)/suggest")
 def _suggest_mapping(call: Call) -> dict[str, str | None]:
     assert call.user is not None

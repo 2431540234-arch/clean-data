@@ -109,6 +109,7 @@ def request(
     files: dict[str, Any] | None = None,
     timeout: float = 30.0,
     raw: bool = False,
+    headers_out: dict[str, str] | None = None,
 ) -> Any:
     """Gọi API backend tại BACKEND_URL + path, raise APIError nếu không thành công.
 
@@ -118,6 +119,7 @@ def request(
         token: JWT access token, nếu có sẽ gắn vào header Authorization.
         json: body JSON (dict hoặc list).
         raw: True để nhận nguyên bytes của response (dùng cho tải file xuất).
+        headers_out: nếu có, được điền header phản hồi (khóa viết thường) để đọc `x-ai-status`.
 
     Raises:
         APIError: backend trả lỗi (status >= 400).
@@ -126,9 +128,14 @@ def request(
     if MOCK:
         import mock_api
 
-        return mock_api.handle(
+        result = mock_api.handle(
             method, path, token=token, json=json, params=params, files=files, raw=raw
         )
+        if headers_out is not None:
+            status = mock_api.ai_status(method, path, result)
+            if status:
+                headers_out["x-ai-status"] = status
+        return result
 
     url = f"{BACKEND_URL}{path}"
     try:
@@ -144,6 +151,8 @@ def request(
     if response.status_code >= 400:
         _raise_for_response(response)
 
+    if headers_out is not None:
+        headers_out.update({k.lower(): v for k, v in response.headers.items()})
     if raw:
         return response.content
     if response.content:
@@ -361,7 +370,12 @@ def get_project(token: str, project_id: int) -> dict[str, Any]:
     return request("GET", f"/api/v1/projects/{project_id}", token=token)
 
 
-def suggest_mapping(token: str, version_id: int, target_schema: list[str]) -> dict[str, str | None]:
+def suggest_mapping(
+    token: str,
+    version_id: int,
+    target_schema: list[str],
+    status_out: dict[str, str] | None = None,
+) -> dict[str, str | None]:
     """Gợi ý mapping cột nguồn -> cột đích (None nếu không khớp); body là mảng JSON cột chuẩn."""
     return request(
         "POST",
@@ -369,23 +383,43 @@ def suggest_mapping(token: str, version_id: int, target_schema: list[str]) -> di
         token=token,
         json=target_schema,
         timeout=120.0,  # tầng 2 có thể gọi AI nên chậm hơn
+        headers_out=status_out,
     )
 
 
-def generate_suggestions(token: str, version_id: int) -> list[dict[str, Any]]:
-    """Sinh gợi ý làm sạch mới cho một phiên bản (list[SuggestionOut]). Có thể gọi AI nên chậm."""
+def generate_suggestions(
+    token: str, version_id: int, status_out: dict[str, str] | None = None
+) -> list[dict[str, Any]]:
+    """Sinh gợi ý làm sạch mới cho một phiên bản (list[SuggestionOut]). Có thể gọi AI nên chậm.
+
+    `status_out` (tùy chọn) được điền header phản hồi; xem `ai_status_of`.
+    """
     return request(
         "POST",
         "/api/v1/suggestions/generate",
         token=token,
         json={"version_id": version_id},
         timeout=300.0,
+        headers_out=status_out,
     )
 
 
-def list_suggestions(token: str, version_id: int) -> list[dict[str, Any]]:
+def list_suggestions(
+    token: str, version_id: int, status_out: dict[str, str] | None = None
+) -> list[dict[str, Any]]:
     """Mọi gợi ý đã có của một phiên bản (list[SuggestionOut])."""
-    return request("GET", f"/api/v1/suggestions/by-version/{version_id}", token=token)
+    return request(
+        "GET",
+        f"/api/v1/suggestions/by-version/{version_id}",
+        token=token,
+        headers_out=status_out,
+    )
+
+
+def ai_status_of(headers: dict[str, str]) -> str | None:
+    """Trạng thái AI ("used" | "disabled" | "fallback") từ `X-AI-Status`; None nếu không rõ."""
+    value = headers.get("x-ai-status")
+    return value if value in ("used", "disabled", "fallback") else None
 
 
 def decide_suggestion(token: str, suggestion_id: int, decision: str) -> dict[str, Any]:

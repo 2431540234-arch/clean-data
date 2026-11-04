@@ -73,7 +73,11 @@ Schema tham chiếu `backend/app/schemas/*.py`. Lỗi trả dạng `{"detail": "
 
 | Method | Path | Request | Response | Ghi chú |
 |---|---|---|---|---|
-| POST | `/datasets/upload` | query `project_id: int`; multipart field `file` | `DatasetUploadResponse` `{dataset: DatasetOut, first_version: DatasetVersionOut, sheet_names: list[str], preview_rows: list[{row_index, values: dict[str,str\|null]}]}` | Vượt `MAX_UPLOAD_MB`: 4xx kèm thông báo. Excel nhiều sheet: trả `sheet_names` |
+| POST | `/datasets/upload` | query `project_id: int`; multipart field `file` | `DatasetUploadResponse` `{dataset: DatasetOut, first_version: DatasetVersionOut, sheet_names: list[str], preview_rows: list[{row_index, values: dict[str,str\|null]}]}` | Vượt `MAX_UPLOAD_MB` (50): 413 kèm thông báo. Excel nhiều sheet: trả `sheet_names` |
+| POST | `/datasets/uploads` | query `project_id: int`; JSON `{filename: str, size: int}` (tổng byte) | `{upload_id, part_size_bytes, max_bytes, expires_in_minutes}` | Mở phiên tải **CSV lớn theo từng phần** (trần `MAX_CHUNKED_UPLOAD_MB` = 200): vượt trần 413, không phải CSV 422, project của người khác 403 |
+| PUT | `/datasets/uploads/{upload_id}/parts/{index}` | multipart field `file` (mỗi phần ≤ `UPLOAD_PART_MB` = 8 MB); `index` từ 0 | `{index, received_bytes}` | Thứ tự gửi tùy ý, gửi lại cùng `index` thì ghi đè. Phần quá lớn 413; phiên của người khác hoặc hết hạn 404 |
+| POST | `/datasets/uploads/{upload_id}/complete` | JSON `{parts: int}` (tổng số phần, đánh số 0..parts-1) | `DatasetUploadResponse` (giống `/datasets/upload`) | Ghép các phần thành một file CSV rồi đọc theo luồng và xử lý cả bộ. Thiếu phần hoặc sai dung lượng: 422 và giữ phiên để gửi bù; CSV lỗi: 422 và xóa phiên |
+| DELETE | `/datasets/uploads/{upload_id}` | — | 204 | Hủy phiên và xóa các phần đã gửi |
 | GET | `/datasets/{dataset_id}` | - | `DatasetOut` | Dùng cho ô "Mở dataset theo ID" |
 | GET | `/datasets/{dataset_id}/versions` | - | `list[DatasetVersionOut]` | Frontend tự sắp xếp theo `version_number` |
 | POST | `/datasets/{dataset_id}/select-sheet` | query `sheet_name: str` | `DatasetUploadResponse` | |

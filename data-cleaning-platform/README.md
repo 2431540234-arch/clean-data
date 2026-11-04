@@ -128,6 +128,14 @@ Hai nơi này phải đi cùng nhau: DB giữ bản ghi, thư mục lưu trữ g
 mới xóa cả hai volume. Nếu dùng S3 (đặt `STORAGE_ENDPOINT` thật) thì file nằm ở bucket, không ở `dcp_storage`.
 Muốn làm sạch dữ liệu demo, dùng script reset ở mục "Reset trước ngày bảo vệ" thay vì xóa tay một trong hai nơi.
 
+### File CSV lớn (tới 200 MB)
+
+- **CSV tới 200 MB:** frontend tự tách file lớn hơn 20 MB thành các phần 8 MB, gửi lần lượt (có thanh tiến độ, tự thử lại phần bị rớt mạng), backend ghép lại thành một file, đọc theo luồng rồi làm sạch trên **cả bộ dữ liệu** và xuất ra một file hoàn chỉnh. Người dùng không phải tự tách file.
+- **Excel tối đa 50 MB** (Excel phải nạp cả file vào bộ nhớ). File Excel lớn hơn: lưu thành CSV rồi tải lại.
+- **Tối đa 1.000.000 dòng và 500 cột** (`MAX_UPLOAD_ROWS`, `MAX_UPLOAD_COLUMNS`).
+- **Thời gian và RAM** (đo với file 198 MiB, 840.000 dòng): tải lên ~13 giây, phân tích ~80 giây, xuất Excel ~140 giây, RAM backend đỉnh ~3,4 GiB; máy chạy backend nên có từ 8 GiB RAM trống khi dùng file gần mức trần. Số liệu đầy đủ ở [docs/BACKEND_NOTES.md](docs/BACKEND_NOTES.md).
+- **Muốn đổi trần:** `MAX_CHUNKED_UPLOAD_MB` trong `.env` (backend) và `maxUploadSize` trong `frontend/.streamlit/config.toml` (Streamlit) phải khớp nhau; frontend đọc trần ở `frontend/components/upload_rules.py`.
+
 ### Kiểm thử
 
 ```bash
@@ -220,7 +228,8 @@ Chạy trên một compose project khác (ví dụ để thử): `-Project dcp-t
 | Đăng nhập báo "quá nhiều lần" (429) | Sai mật khẩu 5 lần trong 15 phút | Chờ 15 phút. Trên máy demo có thể xóa các dòng `auth.login_failed` trong bảng `audit_logs` |
 | Không thấy gợi ý của AI (nguồn luôn là "Quy tắc") | Chưa có `ANTHROPIC_API_KEY` | Đây là hành vi đúng: hệ thống chạy bằng quy tắc. Muốn dùng AI, điền khóa vào `.env` (không commit) và khởi động lại backend; đổi mô hình bằng `AI_MODEL` |
 | Gọi AI chậm hoặc lỗi | Mạng/khóa/hạn mức | Hệ thống tự dùng gợi ý theo quy tắc sau tối đa `AI_TIMEOUT_SECONDS` giây; lỗi được ghi vào bảng `ai_requests` (không ghi dữ liệu hay khóa) |
-| Tải file lên bị từ chối | Quá `MAX_UPLOAD_MB` (413), sai định dạng, hoặc quá `MAX_UPLOAD_ROWS`/`MAX_UPLOAD_COLUMNS` | Dùng CSV/XLSX/XLS hợp lệ, thu nhỏ file hoặc tăng giới hạn trong `.env` |
+| Tải file lên bị từ chối | CSV quá 200 MB (`MAX_CHUNKED_UPLOAD_MB`), Excel quá 50 MB (`MAX_UPLOAD_MB`), sai định dạng, hoặc quá `MAX_UPLOAD_ROWS`/`MAX_UPLOAD_COLUMNS` | Excel lớn: lưu thành CSV. Hoặc thu nhỏ file / tăng giới hạn trong `.env` (và `maxUploadSize` trong `frontend/.streamlit/config.toml`) |
+| Tải CSV lớn báo "Còn thiếu N phần" hoặc "phiên tải lên đã hết hạn" | Mạng ngắt giữa chừng, hoặc phiên dở bị dọn sau 60 phút | Tải lại file; không cần xóa gì, phiên cũ tự dọn |
 | Windows báo lỗi chữ tiếng Việt khi chạy script | Console dùng bảng mã cp1252 | Đặt `PYTHONUTF8=1` trước khi chạy script |
 | Mở http://localhost:8501 thấy giao diện cũ (menu không có mục **Thư viện quy tắc**, không có hàng menu ngang dưới thanh logo) | Container `dcp_frontend` dựng từ image cũ; `docker compose up -d` không tự build lại | Kiểm tra: `docker image ls data-cleaning-platform-frontend` (cột CREATED phải là thời điểm gần đây). Dùng bản mới bằng `docker compose up -d --build frontend` (cách chính); dự phòng: `docker compose stop frontend` rồi chạy `streamlit run app.py` ở Bước 5 |
 | Muốn xóa sạch dữ liệu demo | — | Chạy script reset bên dưới (mục "Reset trước ngày bảo vệ") |

@@ -130,6 +130,36 @@ def test_page_runs_profiling_automatically_and_shows_stats(run_view):
     assert any(b.label == "Tiếp tục: Mapping cột" for b in at.button)
 
 
+def test_page_shows_issue_group_kpi_and_quality_criteria(run_view):
+    at = run_view("overview", role="user", state=CONTEXT)
+    assert not at.exception
+    issue_tables = [d.value for d in at.dataframe if "Loại lỗi" in d.value.columns]
+    metrics = {m.label: m.value for m in at.metric}
+    assert issue_tables and metrics["Nhóm lỗi phát hiện"] == str(len(issue_tables[0]))
+    quality = at.session_state["_mock_db"]["quality"][1]
+    bars = at.get("progress")
+    assert len(bars) == 4  # bốn tiêu chí, mỗi tiêu chí một thanh
+    shown = sorted(bar.proto.text for bar in bars)
+    expected = sorted(
+        f"{quality[key]:.2f}".replace(".", ",")
+        for key in ("completeness", "uniqueness", "validity", "consistency")
+    )
+    assert shown == expected
+    assert any("Đầy đủ (30%)" in m.value for m in at.markdown)
+    assert any("Nhất quán (20%)" in m.value for m in at.markdown)
+
+
+def test_page_issue_failure_hides_issue_kpi_only(run_view, monkeypatch):
+    def boom(token, version_id):
+        raise api_client.APIError(500, "lỗi")
+
+    monkeypatch.setattr(api_client, "get_issues", boom)
+    at = run_view("overview", role="user", state=CONTEXT)
+    assert not at.exception
+    assert "Nhóm lỗi phát hiện" not in {m.label for m in at.metric}
+    assert any("Chưa lấy được danh sách lỗi" in w.value for w in at.warning)
+
+
 def test_page_column_detail_selector(run_view):
     at = run_view("overview", role="user", state=CONTEXT)
     at.selectbox(key="overview_column").set_value("tuoi").run()

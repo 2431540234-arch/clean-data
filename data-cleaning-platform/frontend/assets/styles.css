@@ -433,6 +433,7 @@
 
 .dc-breadcrumb-area {
     color: #64748b;
+    white-space: nowrap;
 }
 
 .dc-breadcrumb-title {

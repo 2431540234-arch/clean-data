@@ -67,7 +67,7 @@ def render_header(current_page_key: str = "home") -> None:
     # --- HÀNG 1: TOP BAR ---
     with st.container(key="dc-header-top"):
         top_col_brand, top_col_project, top_col_user, top_col_logout = st.columns(
-            [3.4, 3.2, 3.2, 1.7], gap="small", vertical_alignment="center"
+            [4.4, 2.6, 3.0, 2.0], gap="small", vertical_alignment="center"
         )
 
         with top_col_brand:

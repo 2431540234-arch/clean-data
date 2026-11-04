@@ -181,10 +181,18 @@ def section(title: str | None = None, *, caption: str | None = None):
     return container
 
 
-def metric_card(label: str, value: str | int | float, *, help: str | None = None) -> None:
-    """Thẻ số liệu có viền."""
+def metric_card(
+    label: str,
+    value: str | int | float,
+    *,
+    help: str | None = None,
+    note: str | None = None,
+) -> None:
+    """Thẻ số liệu có viền; `note` là dòng chú thích nhỏ dưới giá trị."""
     with st.container(border=True):
         st.metric(label, value, help=help)
+        if note:
+            st.caption(note)
 
 
 def _step_state(current: str | None, key: str) -> str:

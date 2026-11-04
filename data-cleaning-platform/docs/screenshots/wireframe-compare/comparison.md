@@ -1,6 +1,6 @@
 # Đối chiếu wireframe — Bước 2
 
-Ảnh `compare-*.png` đặt giao diện ứng dụng cạnh wireframe theo cùng kích thước viewport. Ảnh app là ảnh chụp giao diện Streamlit; ảnh wireframe desktop là tham chiếu từ HTML gốc.
+Ảnh `compare-*.png` đặt giao diện ứng dụng cạnh wireframe theo cùng kích thước viewport. Ảnh app là ảnh chụp giao diện Streamlit; ảnh wireframe desktop là tham chiếu từ [HTML gốc](../../design/wireframe-dataclean.html), với bản PDF tại [wireframe-dataclean.pdf](../../design/wireframe-dataclean.pdf).
 
 | Trang / viewport | Khác biệt quan sát được | Lý do |
 |---|---|---|

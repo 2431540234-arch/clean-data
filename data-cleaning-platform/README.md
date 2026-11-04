@@ -107,12 +107,12 @@ cd frontend && pytest           # không cần backend (dùng dữ liệu mẫu)
 
 | Bước | Trang | Việc làm | File |
 |---|---|---|---|
-| 1 | Dashboard | Tạo project "Demo gợi ý làm sạch" | — |
-| 2 | Tải lên | Chọn project, tải file, xem 20 dòng đầu | **`khach_hang_ban.csv`** |
-| 3 | Tổng quan dữ liệu | Xem điểm chất lượng (≈ 90,5), thống kê cột, tab **Lỗi đã phát hiện** (13 nhóm lỗi), biểu đồ | `khach_hang_ban.csv` |
-| 4 | Gợi ý làm sạch | **Sinh gợi ý** (10 gợi ý, thẻ có viền màu theo mức độ), **Chấp nhận tất cả**, tab *Xem trước và áp dụng* → **Xem trước** → **Áp dụng** | `khach_hang_ban.csv` |
-| 5 | Lịch sử phiên bản | Thử hoàn tác (undo) và làm lại (redo) | — |
-| 6 | Tổng quan dữ liệu | Điểm chất lượng tăng (≈ 98,4), số dòng còn 29 | — |
+| 1 | Dự án | Tạo dự án "Demo gợi ý làm sạch" (dự án mới tự thành dự án đang chọn) | — |
+| 2 | Tải lên | Tải file, xem thông tin file và 20 dòng đầu | **`khach_hang_ban.csv`** |
+| 3 | Tổng quan dữ liệu | Xem điểm chất lượng (≈ 90,5) và 4 tiêu chí thành phần, thống kê cột, tab **Lỗi đã phát hiện** (13 nhóm lỗi), biểu đồ | `khach_hang_ban.csv` |
+| 4 | Làm sạch dữ liệu | **Sinh gợi ý** (10 gợi ý), **Chấp nhận tất cả chưa duyệt** → **Xem trước** → **Áp dụng thay đổi** | `khach_hang_ban.csv` |
+| 5 | Lịch sử phiên bản | Xem chi tiết từng phiên bản, thử **Hoàn tác** và **Làm lại** | — |
+| 6 | Tổng quan dữ liệu | Điểm chất lượng tăng (≈ 98,4), số dòng còn 29, thêm 1 cột | — |
 | 7 | Xuất dữ liệu | Tải CSV và Excel (3 sheet: Dữ liệu, Báo cáo chất lượng, Lỗi đã phát hiện) | — |
 | 8 | Tải lên → Mapping cột | Tải file có **tiêu đề tiếng Việt khác chuẩn**, bấm *Điền ví dụ* → *Gợi ý mapping* → *Xác nhận và sang bước 4* (6/7 cột khớp) | **`khach_hang_tieu_de_khac.csv`** |
 | 9 | Tài khoản | Đổi mật khẩu: vẫn ở lại trang, hiện thông báo thành công | — |
@@ -122,6 +122,19 @@ Ghi chú: `khach_hang_ban.csv` (và `nhan_su_ban.xlsx`, cùng cấu trúc, có n
 để minh họa gợi ý làm sạch, xem [sample_data/README.md](sample_data/README.md). `khach_hang_tieu_de_khac.csv`
 khá sạch nên **chỉ dùng cho phần Mapping cột**: nó gần như không sinh gợi ý làm sạch. Ảnh chụp từng bước nằm
 ở [docs/screenshots/real-backend/](docs/screenshots/real-backend/README.md).
+
+## Reset trước ngày bảo vệ
+
+Đưa máy demo về trạng thái sạch (xóa mọi dự án, dataset, nhật ký; nạp lại 2 tài khoản mẫu). **Lệnh này xóa vĩnh viễn dữ liệu** của compose project, hãy tự chạy khi đã chắc chắn:
+
+```bash
+# Windows (PowerShell)
+powershell -ExecutionPolicy Bypass -File scripts/reset-demo.ps1
+# Linux/macOS
+bash scripts/reset-demo.sh
+```
+
+Script hỏi xác nhận (gõ `RESET`; thêm `-Yes` hoặc `-y` để bỏ qua), rồi chạy `docker compose down -v`, `up -d --build`, `alembic upgrade head` và `scripts/seed.py`. Nếu chạy backend ngoài Docker, tự xóa DB rồi chạy lại Bước 3.
 
 ## Xử lý sự cố
 
@@ -137,7 +150,7 @@ khá sạch nên **chỉ dùng cho phần Mapping cột**: nó gần như không
 | Gọi AI chậm hoặc lỗi | Mạng/khóa/hạn mức | Hệ thống tự dùng gợi ý theo quy tắc sau tối đa `AI_TIMEOUT_SECONDS` giây; lỗi được ghi vào bảng `ai_requests` (không ghi dữ liệu hay khóa) |
 | Tải file lên bị từ chối | Quá `MAX_UPLOAD_MB` (413), sai định dạng, hoặc quá `MAX_UPLOAD_ROWS`/`MAX_UPLOAD_COLUMNS` | Dùng CSV/XLSX/XLS hợp lệ, thu nhỏ file hoặc tăng giới hạn trong `.env` |
 | Windows báo lỗi chữ tiếng Việt khi chạy script | Console dùng bảng mã cp1252 | Đặt `PYTHONUTF8=1` trước khi chạy script |
-| Muốn xóa sạch dữ liệu demo | — | `docker compose down -v` rồi làm lại từ Bước 2 |
+| Muốn xóa sạch dữ liệu demo | — | Chạy script reset bên dưới (mục "Reset trước ngày bảo vệ") |
 
 ## Lệnh tắt (Makefile)
 

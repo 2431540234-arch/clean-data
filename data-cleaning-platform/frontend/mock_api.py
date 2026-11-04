@@ -549,6 +549,13 @@ def _upload_dataset(call: Call) -> dict[str, Any]:
         raise APIError(422, "Định dạng file không được hỗ trợ. Chỉ nhận CSV hoặc Excel.")
     if len(content) > mock_data.MAX_UPLOAD_MB * 1024 * 1024:
         raise APIError(422, f"File vượt quá {mock_data.MAX_UPLOAD_MB} MB.")
+    return _create_uploaded_dataset(call.user, project_id, filename, file_type, content)
+
+
+def _create_uploaded_dataset(
+    user: dict[str, Any], project_id: int, filename: str, file_type: str, content: bytes
+) -> dict[str, Any]:
+    """Đọc nội dung file đã nhận đủ và tạo dataset + phiên bản 1 (dùng cho cả hai cách tải lên)."""
     try:
         if file_type == "csv":
             frame, encoding = mock_data.read_csv_bytes(content)
@@ -571,7 +578,7 @@ def _upload_dataset(call: Call) -> dict[str, Any]:
     dataset, _ = _add_dataset(
         state,
         project_id=project_id,
-        user_id=call.user["id"],
+        user_id=user["id"],
         filename=filename,
         file_type=file_type,
         file_size=len(content),
@@ -582,6 +589,84 @@ def _upload_dataset(call: Call) -> dict[str, Any]:
     )
     state["raw_files"][dataset["id"]] = (content, file_type)
     return _upload_response(dataset, sheet_names)
+
+
+def _upload_session(call: Call) -> dict[str, Any]:
+    assert call.user is not None
+    session = db().setdefault("uploads", {}).get(call.args[0])
+    if session is None or session["user_id"] != call.user["id"]:
+        raise APIError(404, "Không tìm thấy phiên tải lên (có thể đã hết hạn).")
+    return session
+
+
+@route("POST", "/datasets/uploads")
+def _start_chunked_upload(call: Call) -> dict[str, Any]:
+    """Mô phỏng POST /datasets/uploads: mở phiên tải CSV theo từng phần."""
+    assert call.user is not None
+    try:
+        project_id = int(call.params.get("project_id"))
+    except (TypeError, ValueError):
+        raise validation_error("project_id", "Thiếu project_id.") from None
+    _get_project(project_id, call.user)
+    body = call.json or {}
+    filename, size = str(body.get("filename", "")), int(body.get("size") or 0)
+    if not filename.lower().endswith(".csv"):
+        raise APIError(422, "Tải theo từng phần chỉ hỗ trợ file CSV.")
+    if size <= 0:
+        raise APIError(422, "File không có dữ liệu.")
+    if size > mock_data.MAX_CHUNKED_UPLOAD_MB * 1024 * 1024:
+        raise APIError(413, f"File vượt quá {mock_data.MAX_CHUNKED_UPLOAD_MB} MB.")
+    upload_id = f"{_next_id():032x}"
+    db().setdefault("uploads", {})[upload_id] = {
+        "user_id": call.user["id"],
+        "project_id": project_id,
+        "filename": filename,
+        "size": size,
+        "parts": {},
+    }
+    return {
+        "upload_id": upload_id,
+        "part_size_bytes": mock_data.UPLOAD_PART_MB * 1024 * 1024,
+        "max_bytes": mock_data.MAX_CHUNKED_UPLOAD_MB * 1024 * 1024,
+        "expires_in_minutes": 60,
+    }
+
+
+@route("PUT", r"/datasets/uploads/([0-9a-f]{32})/parts/(\d+)")
+def _upload_part(call: Call) -> dict[str, Any]:
+    session = _upload_session(call)
+    index = int(call.args[1])
+    content = (call.files or {}).get("file", (None, b""))[1]
+    if not content:
+        raise APIError(422, "Phần tải lên rỗng.")
+    if len(content) > mock_data.UPLOAD_PART_MB * 1024 * 1024:
+        raise APIError(413, f"Mỗi phần tối đa {mock_data.UPLOAD_PART_MB} MB.")
+    session["parts"][index] = content
+    return {"index": index, "received_bytes": sum(len(p) for p in session["parts"].values())}
+
+
+@route("POST", r"/datasets/uploads/([0-9a-f]{32})/complete")
+def _complete_chunked_upload(call: Call) -> dict[str, Any]:
+    assert call.user is not None
+    session = _upload_session(call)
+    count = int((call.json or {}).get("parts") or 0)
+    missing = [i for i in range(count) if i not in session["parts"]]
+    if count < 1 or missing:
+        raise APIError(422, f"Còn thiếu {len(missing)} phần (số thứ tự: {missing[:10]}).")
+    content = b"".join(session["parts"][i] for i in range(count))
+    if len(content) != session["size"]:
+        raise APIError(
+            422, "Dung lượng sau khi ghép không khớp dung lượng đã khai báo; hãy tải lại."
+        )
+    del db()["uploads"][call.args[0]]
+    project = _get_project(session["project_id"], call.user)
+    return _create_uploaded_dataset(call.user, project["id"], session["filename"], "csv", content)
+
+
+@route("DELETE", r"/datasets/uploads/([0-9a-f]{32})", access="user")
+def _abort_chunked_upload(call: Call) -> None:
+    _upload_session(call)
+    del db()["uploads"][call.args[0]]
 
 
 @route("GET", r"/datasets/(\d+)")
@@ -1049,6 +1134,7 @@ _AUDIT_RULES: dict[str, Callable[[Call, Any], tuple]] = {
     "_delete_project": lambda c, r: (
         "project.delete", "project", int(c.args[0]), None, {"project_id": int(c.args[0])}, None
     ),
+    "_complete_chunked_upload": lambda c, r: _AUDIT_RULES["_upload_dataset"](c, r),
     "_upload_dataset": lambda c, r: (
         "dataset.upload", "dataset", r["dataset"]["id"], r["dataset"]["project_id"], None,
         {"filename": r["dataset"]["original_filename"], "rows": r["first_version"]["row_count"]},

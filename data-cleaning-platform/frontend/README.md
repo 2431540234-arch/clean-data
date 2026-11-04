@@ -74,7 +74,7 @@ app.py            điểm vào: cấu hình trang, CSS, st.navigation theo quy�
 views/            các trang (một file một trang)
 components/       thành phần dùng chung (ui.py, navigation.py, biểu đồ, thẻ gợi ý, bảng diff, ...)
 assets/styles.css design tokens + style (Minimal Ink, chỉ nền sáng)
-.streamlit/       theme sáng cố định, giới hạn upload 50 MB
+.streamlit/       theme sáng cố định, giới hạn upload 200 MB (CSV theo từng phần)
 api_client.py     gọi backend (httpx), xử lý lỗi kết nối/timeout/5xx, chọn mock bằng FRONTEND_MOCK
 mock_*.py         backend giả có trạng thái (tài liệu tham khảo hành vi, KHÔNG phải đặc tả)
 tests/            pytest + AppTest

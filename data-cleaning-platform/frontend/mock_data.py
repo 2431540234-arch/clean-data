@@ -16,7 +16,9 @@ NULL_TOKENS = frozenset(
 )
 
 PREVIEW_ROWS = 20
-MAX_UPLOAD_MB = 50  # khớp backend MAX_UPLOAD_MB
+MAX_UPLOAD_MB = 50  # khớp backend MAX_UPLOAD_MB (tải một lần, gồm Excel)
+MAX_CHUNKED_UPLOAD_MB = 200  # khớp backend MAX_CHUNKED_UPLOAD_MB (CSV tải theo từng phần)
+UPLOAD_PART_MB = 8  # khớp backend UPLOAD_PART_MB
 
 SAMPLE_FILENAME = "khach_hang_ban.csv"
 SAMPLE_CSV = """ho_ten,email,so_dien_thoai,ngay_sinh,tuoi,tinh_thanh

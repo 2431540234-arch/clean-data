@@ -360,7 +360,7 @@
  * AN TOÀN KHI HỎNG: mỗi quy tắc dùng selector con trực tiếp và vừa ẩn chữ gốc (font-size: 0) vừa
  * thêm chữ Việt (::after) trong CÙNG một nhóm; selector không còn khớp thì cả hai cùng không xảy
  * ra và chữ tiếng Anh gốc vẫn hiện (không bao giờ để ô trống).
- * Giới hạn "50MB" và danh sách loại file phải khớp MAX_UPLOAD_MB / _ACCEPTED_TYPES trong
+ * Giới hạn "200MB/50MB" và danh sách loại file phải khớp MAX_CSV_MB / MAX_EXCEL_MB / _ACCEPTED_TYPES trong
  * views/upload.py. */
 [data-testid="stFileUploaderDropzoneInstructions"] > div > span {
     font-size: 0;
@@ -373,11 +373,12 @@
     font-size: 0;
 }
 [data-testid="stFileUploaderDropzoneInstructions"] > div > small::after {
-    content: "Tối đa 50MB · CSV, XLSX";
+    content: "CSV ≤ 200MB · XLSX ≤ 50MB";
     font-size: var(--fs-14);
 }
 [data-testid="stFileUploaderDropzone"] > button {
     font-size: 0;
+    white-space: nowrap;
 }
 [data-testid="stFileUploaderDropzone"] > button::after {
     content: "Chọn file";

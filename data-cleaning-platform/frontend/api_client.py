@@ -4,7 +4,9 @@
 backend thật. Đây là nơi DUY NHẤT chọn giữa mock và thật: các trang/component không biết.
 """
 
+import contextlib
 import os
+from collections.abc import Callable
 from typing import Any
 
 import httpx
@@ -201,6 +203,81 @@ def upload_dataset(
     )
 
 
+def start_chunked_upload(token: str, project_id: int, filename: str, size: int) -> dict[str, Any]:
+    """Mở phiên tải CSV lớn theo từng phần: {upload_id, part_size_bytes, max_bytes, ...}."""
+    return request(
+        "POST",
+        "/api/v1/datasets/uploads",
+        token=token,
+        params={"project_id": project_id},
+        json={"filename": filename, "size": size},
+    )
+
+
+def send_upload_part(token: str, upload_id: str, index: int, content: bytes) -> dict[str, Any]:
+    """Gửi phần thứ `index` (từ 0) của một phiên; gửi lại cùng số thì ghi đè."""
+    return request(
+        "PUT",
+        f"/api/v1/datasets/uploads/{upload_id}/parts/{index}",
+        token=token,
+        files={"file": ("part", content, "application/octet-stream")},
+        timeout=120.0,
+    )
+
+
+def complete_chunked_upload(token: str, upload_id: str, parts: int) -> dict[str, Any]:
+    """Ghép các phần, đọc và tạo dataset (DatasetUploadResponse). File lớn có thể mất vài phút."""
+    return request(
+        "POST",
+        f"/api/v1/datasets/uploads/{upload_id}/complete",
+        token=token,
+        json={"parts": parts},
+        timeout=900.0,
+    )
+
+
+def abort_chunked_upload(token: str, upload_id: str) -> None:
+    """Hủy phiên tải lên và xóa các phần đã gửi."""
+    request("DELETE", f"/api/v1/datasets/uploads/{upload_id}", token=token)
+
+
+_PART_RETRIES = 2  # số lần gửi lại một phần khi mạng chập chờn (không gửi lại khi backend báo lỗi)
+
+
+def upload_dataset_in_parts(
+    token: str,
+    project_id: int,
+    filename: str,
+    content: bytes,
+    on_progress: Callable[[int, int], None] | None = None,
+) -> dict[str, Any]:
+    """Tải CSV lớn: tự tách thành các phần, gửi lần lượt rồi để backend ghép và xử lý cả bộ.
+
+    `on_progress(đã_gửi, tổng_phần)` được gọi sau mỗi phần. Lỗi giữa chừng thì hủy phiên đã mở.
+    """
+    session = start_chunked_upload(token, project_id, filename, len(content))
+    upload_id, part_size = session["upload_id"], session["part_size_bytes"]
+    total = -(-len(content) // part_size)
+    try:
+        for index in range(total):
+            chunk = content[index * part_size : (index + 1) * part_size]
+            for attempt in range(_PART_RETRIES + 1):
+                try:
+                    send_upload_part(token, upload_id, index, chunk)
+                    break
+                except APIConnectionError:
+                    if attempt == _PART_RETRIES:
+                        raise
+            if on_progress is not None:
+                on_progress(index + 1, total)
+        return complete_chunked_upload(token, upload_id, total)
+    except APIError as exc:
+        if exc.status_code != 422 or "thiếu" not in exc.detail:  # thiếu phần: để phiên cho gửi bù
+            with contextlib.suppress(APIError):  # phiên cũng tự hết hạn; không che lỗi gốc
+                abort_chunked_upload(token, upload_id)
+        raise
+
+
 def get_dataset(token: str, dataset_id: int) -> dict[str, Any]:
     """Thông tin một dataset (DatasetOut)."""
     return request("GET", f"/api/v1/datasets/{dataset_id}", token=token)
@@ -229,12 +306,12 @@ def get_profiling(token: str, version_id: int) -> dict[str, Any]:
 
 def run_profiling(token: str, version_id: int) -> dict[str, Any]:
     """Chạy profiling cho một phiên bản và lưu kết quả (ProfilingResult)."""
-    return request("POST", f"/api/v1/profiling/{version_id}/run", token=token, timeout=120.0)
+    return request("POST", f"/api/v1/profiling/{version_id}/run", token=token, timeout=600.0)
 
 
 def get_quality(token: str, version_id: int) -> dict[str, Any]:
     """Điểm chất lượng của một phiên bản (QualityReportOut)."""
-    return request("GET", f"/api/v1/quality/{version_id}", token=token, timeout=60.0)
+    return request("GET", f"/api/v1/quality/{version_id}", token=token, timeout=300.0)
 
 
 def list_project_datasets(token: str, project_id: int) -> list[dict[str, Any]]:
@@ -244,7 +321,7 @@ def list_project_datasets(token: str, project_id: int) -> list[dict[str, Any]]:
 
 def get_issues(token: str, version_id: int) -> list[dict[str, Any]]:
     """Lỗi dữ liệu đã phát hiện của một phiên bản (list[DataIssueOut]); 404 nếu chưa profiling."""
-    return request("GET", f"/api/v1/profiling/{version_id}/issues", token=token)
+    return request("GET", f"/api/v1/profiling/{version_id}/issues", token=token, timeout=300.0)
 
 
 def get_rows(
@@ -283,7 +360,7 @@ def generate_suggestions(token: str, version_id: int) -> list[dict[str, Any]]:
         "/api/v1/suggestions/generate",
         token=token,
         json={"version_id": version_id},
-        timeout=180.0,
+        timeout=300.0,
     )
 
 
@@ -311,7 +388,7 @@ def preview_rules(
         "/api/v1/preview",
         token=token,
         json={"version_id": version_id, "rule_set": {"steps": steps}, "sample_rows": sample_rows},
-        timeout=120.0,
+        timeout=300.0,
     )
 
 
@@ -322,7 +399,7 @@ def apply_rules(token: str, dataset_id: int, steps: list[dict[str, Any]]) -> dic
         f"/api/v1/versions/{dataset_id}/apply",
         token=token,
         json={"steps": steps},
-        timeout=180.0,
+        timeout=600.0,
     )
 
 
@@ -343,13 +420,13 @@ def restore_version(token: str, dataset_id: int, version_id: int) -> dict[str, A
 
 def export_csv(token: str, version_id: int) -> bytes:
     """Nội dung file CSV (UTF-8 có BOM) của một phiên bản."""
-    return request("GET", f"/api/v1/export/{version_id}/csv", token=token, raw=True, timeout=180.0)
+    return request("GET", f"/api/v1/export/{version_id}/csv", token=token, raw=True, timeout=600.0)
 
 
 def export_excel(token: str, version_id: int) -> bytes:
     """Nội dung file Excel nhiều sheet (dữ liệu + báo cáo chất lượng) của một phiên bản."""
     return request(
-        "GET", f"/api/v1/export/{version_id}/excel", token=token, raw=True, timeout=180.0
+        "GET", f"/api/v1/export/{version_id}/excel", token=token, raw=True, timeout=900.0
     )
 
 

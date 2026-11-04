@@ -9,3 +9,7 @@ venv/
 .pytest_cache/
 .ruff_cache/
 .git/
+# Dữ liệu cục bộ của máy dev (file dataset): không đóng vào image, dữ liệu thật nằm trong volume dcp_storage
+data/
+.mypy_cache/
+*.egg-info/

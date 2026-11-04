@@ -85,7 +85,7 @@ def test_user_sees_only_own_logs_and_no_scope_toggle(run_view):
     table = at.dataframe[0].value
     assert list(table["Hành động"]) == ["Tạo project", "Tải lên dataset", "Tạo project"]
     assert "Người thực hiện" not in table.columns
-    assert "3/3 bản ghi" in " ".join(c.value for c in at.caption)
+    assert "Hiển thị 1–3 trên 3 bản ghi" in " ".join(c.value for c in at.caption)
 
 
 def test_admin_scope_toggle_shows_everyone_with_names(run_view):
@@ -102,15 +102,58 @@ def test_filter_by_action(run_view):
     at.selectbox(key="audit_actions").set_value("dataset.upload").run()
     table = at.dataframe[0].value
     assert list(table["Hành động"]) == ["Tải lên dataset"]
-    assert "1/3 bản ghi" in " ".join(c.value for c in at.caption)
+    assert "Hiển thị 1–1 trên 1 bản ghi (đã lọc từ 3)" in " ".join(c.value for c in at.caption)
 
 
 def test_filter_by_date_range_and_no_match(run_view):
     at = run_view("audit", role="user")
-    at.date_input(key="audit_range").set_value((date(2026, 9, 12), date(2026, 9, 12))).run()
+    at.date_input(key="audit_from").set_value(date(2026, 9, 12)).run()
+    at.date_input(key="audit_to").set_value(date(2026, 9, 12)).run()
     assert len(at.dataframe[0].value) == 2  # 2 dòng ngày 12/09/2026
-    at.date_input(key="audit_range").set_value((date(2020, 1, 1), date(2020, 1, 2))).run()
+    at.date_input(key="audit_from").set_value(date(2020, 1, 1)).run()
+    at.date_input(key="audit_to").set_value(date(2020, 1, 2)).run()
     assert any("Không có bản ghi nào khớp bộ lọc" in i.value for i in at.info)
+
+
+def test_filter_with_only_one_date_bound(run_view):
+    at = run_view("audit", role="user")
+    at.date_input(key="audit_from").set_value(date(2026, 10, 1)).run()
+    assert list(at.dataframe[0].value["Hành động"]) == ["Tạo project"]  # chỉ dòng ngày 05/10
+    at.date_input(key="audit_from").set_value(date(2020, 1, 1)).run()
+    at.date_input(key="audit_to").set_value(date(2026, 9, 30)).run()
+    assert len(at.dataframe[0].value) == 2
+
+
+def test_clear_filters_button_restores_full_list(run_view):
+    at = run_view("audit", role="user")
+    at.selectbox(key="audit_actions").set_value("dataset.upload").run()
+    assert len(at.dataframe[0].value) == 1
+    find_button(at, "Xóa bộ lọc").click().run()
+    assert not at.exception and len(at.dataframe[0].value) == 3
+
+
+def test_admin_can_filter_everyone_by_user_name_or_email(run_view):
+    at = run_view("audit", role="admin")
+    at.toggle(key="audit_everyone").set_value(True).run()
+    at.text_input(key="audit_user").set_value("quốc bảo").run()
+    assert set(at.dataframe[0].value["Người thực hiện"]) == {"Trần Quốc Bảo"}
+    at.text_input(key="audit_user").set_value("khong.ai.ca").run()
+    assert any("Không có bản ghi nào khớp bộ lọc" in i.value for i in at.info)
+
+
+def test_pagination_splits_long_logs_into_pages(run_view):
+    db = mock_api._seed()
+    template = db["audit"][0]
+    db["audit"] = [{**template, "id": 1000 + i} for i in range(45)]
+    at = run_view("audit", role="user", state={"_mock_db": db})
+    assert len(at.dataframe[0].value) == 20
+    assert "Hiển thị 1–20 trên 45 bản ghi" in " ".join(c.value for c in at.caption)
+    assert find_button(at, "Trước").disabled and not find_button(at, "Sau").disabled
+    find_button(at, "Sau").click().run()
+    find_button(at, "Sau").click().run()
+    assert len(at.dataframe[0].value) == 5
+    assert "Hiển thị 41–45 trên 45 bản ghi" in " ".join(c.value for c in at.caption)
+    assert find_button(at, "Sau").disabled and not find_button(at, "Trước").disabled
 
 
 def test_detail_shows_before_and_after(run_view):
@@ -167,6 +210,29 @@ def test_account_shows_profile_from_server(run_view):
     assert "Nguyễn Thị Minh Anh" in html and "user@example.com" in html
     assert "Người dùng" in html and "Đang hoạt động" in html
     assert any("Tham gia từ 01/09/2026" in c.value for c in at.caption)
+
+
+def test_account_shows_usage_tiles_and_read_only_personal_info(run_view):
+    at = run_view("account", role="user")
+    assert not at.exception
+    tiles = {m.label: m.value for m in at.metric}
+    assert tiles["Dự án"] == "2" and tiles["Dataset"] == "1" and "Quy tắc của tôi" in tiles
+    captions = [c.value for c in at.caption]
+    assert "Họ và tên" in captions and "Email" in captions
+    markdown = [m.value for m in at.markdown]
+    assert "**Nguyễn Thị Minh Anh**" in markdown and "**user@example.com**" in markdown
+    assert not {"Họ và tên", "Email"} & {t.label for t in at.text_input}  # chỉ xem, không sửa
+    assert not any("Lưu thay đổi" in b.label for b in at.button)  # backend chưa có cập nhật hồ sơ
+    assert any("phiên đăng nhập khác sẽ hết hiệu lực" in i.value for i in at.info)
+
+
+def test_account_hides_usage_tiles_when_projects_fail(run_view, monkeypatch):
+    def boom(token):
+        raise api_client.APIError(500, "lỗi")
+
+    monkeypatch.setattr(api_client, "list_projects", boom)
+    at = run_view("account", role="user")
+    assert not at.exception and not at.metric
 
 
 def test_account_admin_badge(run_view):

@@ -67,7 +67,8 @@ def page_shell(
 
         current_page = page_key or get_page_key(title)
         render_header(current_page)
-        stepper(current_page)
+        if current_page in FLOW_KEYS:  # wireframe: chỉ 6 trang của quy trình có thanh bước
+            stepper(current_page)
     if title:
         st.title(title, anchor=False)
     if subtitle:

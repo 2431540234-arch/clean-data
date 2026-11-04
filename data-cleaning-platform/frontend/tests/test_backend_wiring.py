@@ -150,9 +150,10 @@ def test_suggestion_cards_show_severity(run_view):
 
 def test_account_adopts_new_token_stays_logged_in_with_toast(run_view):
     at = run_view("account", role="user")
-    at.text_input[0].set_value("User12345")
-    at.text_input[1].set_value("MatKhauMoi1")
-    at.text_input[2].set_value("MatKhauMoi1")
+    passwords = {t.label: t for t in at.text_input}
+    passwords["Mật khẩu hiện tại"].set_value("User12345")
+    passwords["Mật khẩu mới"].set_value("MatKhauMoi1")
+    passwords["Nhập lại mật khẩu mới"].set_value("MatKhauMoi1")
     find_button(at, "Đổi mật khẩu").click().run()
     assert not at.exception and not at.error
     assert at.session_state["access_token"] == "mock-token-2.1"  # token mới được nhận

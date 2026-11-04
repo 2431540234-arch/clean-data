@@ -32,6 +32,24 @@ def test_stepper_has_no_current_step_outside_cleaning_flow():
     assert {_step_state("home", key) for key in FLOW_KEYS} == {"todo"}
 
 
+def _step_links(at):
+    """Nhãn các bước trong thanh bước (AppTest dựng liên kết trang thành nút hoặc page_link)."""
+    labels = [b.label for b in at.button] + [link.proto.label for link in at.get("page_link")]
+    return [
+        label
+        for label in labels
+        if label[:1].isdigit() and any(s in label for s in ("chưa làm", "hiện tại", "đã xong"))
+    ]
+
+
+def test_stepper_only_appears_on_the_six_flow_pages(run_view):
+    for key in ("home", "audit", "account", "rule_library", "dashboard"):
+        assert not _step_links(run_view(key, role="user")), key
+    at = run_view("upload", role="user")
+    assert len(_step_links(at)) == len(FLOW_KEYS)
+    assert any("hiện tại" in label and "Tải lên" in label for label in _step_links(at))
+
+
 def test_header_admin_menu_is_only_visible_to_admin(run_view):
     user_page = run_view("home", role="user")
     admin_page = run_view("home", role="admin")

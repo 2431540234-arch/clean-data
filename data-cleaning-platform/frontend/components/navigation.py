@@ -137,7 +137,7 @@ def get_page_key(title: str | None) -> str:
 def build_pages(logged_in: bool, admin: bool) -> list[st.Page] | dict[str, list[st.Page]]:
     """Dựng danh sách st.Page cho st.navigation theo trạng thái đăng nhập và quyền."""
     if not logged_in:
-        return [_to_st_page(_BY_KEY["login"])]
+        return [_to_st_page(page, default=page.key == "login") for page in PAGES]
 
     sections: dict[str, list[st.Page]] = {}
     for page in PAGES:
@@ -147,11 +147,11 @@ def build_pages(logged_in: bool, admin: bool) -> list[st.Page] | dict[str, list[
     return sections
 
 
-def _to_st_page(page: PageDef) -> st.Page:
+def _to_st_page(page: PageDef, *, default: bool | None = None) -> st.Page:
     return st.Page(
         page.file,
         title=page.title,
         icon=f":material/{page.icon}:",
         url_path=page.url_path or None,
-        default=page.default,
+        default=page.default if default is None else default,
     )

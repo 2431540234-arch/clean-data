@@ -515,20 +515,44 @@
 
 .st-key-dc-header-nav {
     max-width: 100%;
-    overflow-x: auto;
-    scrollbar-width: thin;
+    overflow-x: hidden;
+}
+
+.st-key-dc-header-nav [data-testid="stPageLink"] a {
+    justify-content: center;
+    white-space: nowrap;
+    gap: 0.25rem;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
 }
 
 .st-key-dc-header-nav [data-testid="stHorizontalBlock"] {
-    min-width: max-content;
+    min-width: 0;
+    gap: 0 !important;
 }
 
 .st-key-dc-header-nav [data-testid="stColumn"] {
-    flex: 1 0 auto !important;
-    min-width: 100px !important;
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
 }
 
-/* Responsive 375px: keep the header compact and wrap navigation into two short rows. */
+@media (max-width: 768px) {
+    .st-key-dc-header-nav {
+        overflow-x: auto;
+        scrollbar-width: thin;
+    }
+
+    .st-key-dc-header-nav [data-testid="stHorizontalBlock"] {
+        min-width: max-content;
+    }
+
+    .st-key-dc-header-nav [data-testid="stColumn"] {
+        flex: 1 0 auto !important;
+        min-width: 9rem !important;
+    }
+}
+
+/* Responsive 375px: keep the header compact and allow the menu to scroll horizontally. */
 @media (max-width: 640px) {
     .dc-header-brand {
         flex-wrap: wrap;
@@ -543,46 +567,6 @@
         flex: unset !important;
         min-width: 0 !important;
         width: auto !important;
-    }
-
-    .st-key-dc-header-nav {
-        overflow-x: hidden;
-    }
-
-    .st-key-dc-header-nav [data-testid="stHorizontalBlock"] {
-        display: grid !important;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        min-width: 0;
-        column-gap: 0;
-        row-gap: 4px;
-    }
-
-    .st-key-dc-header-nav [data-testid="stColumn"] {
-        flex: unset !important;
-        min-width: 0 !important;
-        width: auto !important;
-        max-width: 100%;
-    }
-
-    .st-key-dc-header-nav [data-testid="stPageLink"] {
-        min-width: 0;
-        width: 100%;
-        max-width: 100%;
-    }
-
-    .st-key-dc-header-nav [data-testid="stPageLink"] a {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        min-width: 0;
-        width: 100%;
-        max-width: 100%;
-        padding: 6px 2px;
-        font-size: 12px;
-        justify-content: center;
-        text-align: center;
-        white-space: normal;
-        line-height: 1.15;
     }
 
     .st-key-dc-stepper [data-testid="stHorizontalBlock"] {
@@ -609,7 +593,6 @@
         line-height: 1.15;
     }
 
-    .st-key-dc-header-nav [data-testid="stPageLink"] a > span:last-child,
     .st-key-dc-stepper [data-testid="stPageLink"] a > span:last-child {
         flex: 0 1 100%;
         width: 100% !important;
@@ -618,7 +601,6 @@
         white-space: normal !important;
     }
 
-    .st-key-dc-header-nav [data-testid="stPageLink"] a > span:last-child [data-testid="stMarkdownContainer"],
     .st-key-dc-stepper [data-testid="stPageLink"] a > span:last-child [data-testid="stMarkdownContainer"] {
         width: 100%;
         min-width: 0;

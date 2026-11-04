@@ -6,14 +6,16 @@ nhưng từng trang vẫn tự kiểm tra phòng khi truy cập trực tiếp b�
 
 import streamlit as st
 
-from state import init_state, is_admin, is_logged_in
+from components.navigation import get_page
+from state import init_state, is_admin, is_logged_in, set_flash
 
 
 def require_login() -> None:
-    """Nếu chưa đăng nhập, hiển thị thông báo và dừng render trang (st.stop())."""
+    """Đưa người chưa đăng nhập về trang đăng nhập kèm thông báo."""
     init_state()
     if not is_logged_in():
-        st.warning("Vui lòng đăng nhập để tiếp tục.", icon=":material/lock:")
+        set_flash("Vui lòng đăng nhập để tiếp tục.", "warning")
+        st.switch_page(get_page("login").file)
         st.stop()
 
 

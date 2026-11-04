@@ -9,8 +9,30 @@ VIEWS = [p.key for p in PAGES if p.key != "login"]
 ADMIN_VIEWS = [p.key for p in PAGES if p.admin_only]
 
 
-def test_logged_out_only_sees_login():
-    assert len(build_pages(False, False)) == 1
+def test_logged_out_routes_are_registered_with_login_as_default(monkeypatch):
+    monkeypatch.setattr(
+        "components.navigation.st.Page",
+        lambda path, **kwargs: (path, kwargs),
+    )
+    pages = build_pages(False, False)
+
+    assert len(pages) == len(PAGES)
+    assert pages[0][0] == "views/login.py"
+    assert pages[0][1]["default"] is True
+    assert all(not options["default"] for _, options in pages[1:])
+
+
+def test_logged_out_direct_route_redirects_to_login(run_view, monkeypatch):
+    redirected = []
+    monkeypatch.setattr("streamlit.switch_page", lambda page: redirected.append(page))
+
+    at = run_view("account")
+
+    assert redirected == ["views/login.py"]
+    assert at.session_state["flash_message"] == (
+        "Vui lòng đăng nhập để tiếp tục.",
+        "warning",
+    )
 
 
 def test_admin_group_only_for_admin():

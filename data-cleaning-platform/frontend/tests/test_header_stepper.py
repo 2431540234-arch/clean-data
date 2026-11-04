@@ -1,7 +1,20 @@
 """Header chung, quyền hiển thị menu và trạng thái stepper."""
 
+from pathlib import Path
+
 from components.navigation import FLOW_KEYS
 from components.ui import _step_state
+
+
+def test_header_nav_only_scrolls_at_mobile_breakpoint():
+    css_path = Path(__file__).resolve().parents[1] / "assets" / "styles.css"
+    css = css_path.read_text(encoding="utf-8")
+
+    assert ".st-key-dc-header-nav {\n    max-width: 100%;\n    overflow-x: hidden;" in css
+    assert "flex: 1 1 0 !important;" in css
+    mobile_styles = css.split("@media (max-width: 768px) {", maxsplit=1)[1]
+    assert ".st-key-dc-header-nav {" in mobile_styles
+    assert "overflow-x: auto;" in mobile_styles
 
 
 def test_stepper_marks_cleaning_as_current_step_four():

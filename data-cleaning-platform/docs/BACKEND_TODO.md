@@ -205,4 +205,3 @@ chưa xong. Backend:
   demo (ví dụ suy luận kiểu theo regex, phát hiện biến thể tên bằng bỏ dấu), không phải đặc tả.
 - Nếu mock và `docs/` mâu thuẫn, `docs/` và schema backend là nguồn đúng; hãy báo để sửa mock.
 - Mock không có trong ảnh Docker chạy thật: chế độ này chỉ bật bằng biến `FRONTEND_MOCK=1`.
-

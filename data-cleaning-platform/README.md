@@ -93,6 +93,41 @@ docker compose exec backend python scripts/seed.py
 
 Frontend <http://localhost:8501>, backend <http://localhost:8000/docs>.
 
+Bản giao diện mới nhận ra bằng: menu ngang có đủ **Trang chủ · Dự án · Làm sạch dữ liệu · Thư viện quy tắc · Nhật ký · Tài khoản** (thêm **Quản trị** với admin), và thanh 6 bước chỉ hiện ở các trang của quy trình làm sạch.
+
+### Cách chạy chuẩn cho ngày bảo vệ
+
+**Cách chính (A): chạy cả ba dịch vụ bằng Docker, build lại sau khi chốt code.**
+
+```bash
+docker compose up -d --build        # postgres + backend + frontend, dữ liệu nằm trong 2 volume
+# lần đầu hoặc sau reset: docker compose exec backend python scripts/seed.py
+```
+
+Mở <http://localhost:8501>. Mỗi lần sửa code giao diện phải build lại (`docker compose up -d --build frontend`),
+nếu không cổng 8501 vẫn là bản cũ. Kiểm tra bằng cách đăng nhập và xem menu có mục **Thư viện quy tắc**.
+
+**Cách dự phòng (B): chạy Streamlit trực tiếp** (sửa nhanh phút chót, không cần build). Phải giải phóng cổng 8501 trước:
+
+```bash
+docker compose stop frontend        # bắt buộc, nếu không Streamlit báo cổng 8501 đã bị chiếm
+cd frontend && streamlit run app.py
+```
+
+Khi đang dùng cách B, đừng chạy `docker compose up` không kèm tên dịch vụ (nó bật lại container frontend và chiếm cổng 8501).
+
+### Dữ liệu được lưu ở đâu
+
+| Dữ liệu | Chạy bằng Docker Compose | Backend chạy ngoài Docker |
+|---|---|---|
+| Bản ghi (người dùng, dự án, dataset, phiên bản, nhật ký) | Volume `dcp_postgres_data` (Postgres) | Postgres của bạn (`DATABASE_URL`) |
+| File dataset (Parquet) | Volume `dcp_storage`, gắn vào `/app/data/storage` trong container backend | Thư mục `backend/data/storage` trên máy |
+
+Hai nơi này phải đi cùng nhau: DB giữ bản ghi, thư mục lưu trữ giữ nội dung file. Nhờ hai volume,
+`docker compose up -d --build backend` (tạo lại container) không làm mất dữ liệu. Chỉ `docker compose down -v`
+mới xóa cả hai volume. Nếu dùng S3 (đặt `STORAGE_ENDPOINT` thật) thì file nằm ở bucket, không ở `dcp_storage`.
+Muốn làm sạch dữ liệu demo, dùng script reset ở mục "Reset trước ngày bảo vệ" thay vì xóa tay một trong hai nơi.
+
 ### Kiểm thử
 
 ```bash
@@ -107,14 +142,14 @@ cd frontend && pytest           # không cần backend (dùng dữ liệu mẫu)
 
 | Bước | Trang | Việc làm | File |
 |---|---|---|---|
-| 1 | Dashboard | Tạo project "Demo gợi ý làm sạch" | — |
-| 2 | Tải lên | Chọn project, tải file, xem 20 dòng đầu | **`khach_hang_ban.csv`** |
-| 3 | Tổng quan dữ liệu | Xem điểm chất lượng (≈ 90,5), thống kê cột, tab **Lỗi đã phát hiện** (13 nhóm lỗi), biểu đồ | `khach_hang_ban.csv` |
-| 4 | Gợi ý làm sạch | **Sinh gợi ý** (10 gợi ý, thẻ có viền màu theo mức độ), **Chấp nhận tất cả**, tab *Xem trước và áp dụng* → **Xem trước** → **Áp dụng** | `khach_hang_ban.csv` |
-| 5 | Lịch sử phiên bản | Thử hoàn tác (undo) và làm lại (redo) | — |
-| 6 | Tổng quan dữ liệu | Điểm chất lượng tăng (≈ 98,4), số dòng còn 29 | — |
+| 1 | Dự án | Tạo dự án "Demo gợi ý làm sạch" (dự án mới tự thành dự án đang chọn) | — |
+| 2 | Tải lên | Tải file, xem thông tin file và 20 dòng đầu | **`khach_hang_ban.csv`** |
+| 3 | Tổng quan dữ liệu | Xem điểm chất lượng (≈ 90,5) và 4 tiêu chí thành phần, thống kê cột, tab **Lỗi đã phát hiện** (13 nhóm lỗi), biểu đồ | `khach_hang_ban.csv` |
+| 4 | Làm sạch dữ liệu | **Sinh gợi ý** (10 gợi ý), **Chấp nhận tất cả chưa duyệt** → **Xem trước** → **Áp dụng thay đổi** | `khach_hang_ban.csv` |
+| 5 | Lịch sử phiên bản | Xem chi tiết từng phiên bản, thử **Hoàn tác** và **Làm lại** | — |
+| 6 | Tổng quan dữ liệu | Điểm chất lượng tăng (≈ 98,4), số dòng còn 29, thêm 1 cột | — |
 | 7 | Xuất dữ liệu | Tải CSV và Excel (3 sheet: Dữ liệu, Báo cáo chất lượng, Lỗi đã phát hiện) | — |
-| 8 | Tải lên → Mapping cột | Tải file có **tiêu đề tiếng Việt khác chuẩn**, bấm *Điền ví dụ* → *Gợi ý mapping* → *Xác nhận mapping* (6/7 cột khớp) | **`khach_hang_tieu_de_khac.csv`** |
+| 8 | Tải lên → Mapping cột | Tải file có **tiêu đề tiếng Việt khác chuẩn**, bấm *Điền ví dụ* → *Gợi ý mapping* → *Xác nhận và sang bước 4* (6/7 cột khớp) | **`khach_hang_tieu_de_khac.csv`** |
 | 9 | Tài khoản | Đổi mật khẩu: vẫn ở lại trang, hiện thông báo thành công | — |
 | 10 | Đăng nhập admin (`admin@example.com`) | Quản trị người dùng, Thống kê hệ thống, Nhật ký (bật *Xem toàn hệ thống*) | — |
 
@@ -122,6 +157,42 @@ Ghi chú: `khach_hang_ban.csv` (và `nhan_su_ban.xlsx`, cùng cấu trúc, có n
 để minh họa gợi ý làm sạch, xem [sample_data/README.md](sample_data/README.md). `khach_hang_tieu_de_khac.csv`
 khá sạch nên **chỉ dùng cho phần Mapping cột**: nó gần như không sinh gợi ý làm sạch. Ảnh chụp từng bước nằm
 ở [docs/screenshots/real-backend/](docs/screenshots/real-backend/README.md).
+
+## Checklist ngày bảo vệ
+
+Làm theo thứ tự, tick từng mục:
+
+1. [ ] **Đóng băng code**: `git status` sạch, đang ở `main` (tag `v1.0-bao-ve`), không sửa thêm gì.
+2. [ ] **Reset dữ liệu**: `powershell -ExecutionPolicy Bypass -File scripts/reset-demo.ps1` (gõ `RESET`). Xem mục "Reset trước ngày bảo vệ".
+3. [ ] **Build container**: `docker compose up -d --build`, chờ `docker compose ps` báo cả ba dịch vụ `healthy`.
+4. [ ] **Kiểm tra bản mới ở <http://localhost:8501>**: đăng nhập `user@example.com` / `User12345`, menu có mục **Thư viện quy tắc**; `curl http://localhost:8000/health` trả `{"status":"ok"}`.
+5. [ ] **Đi thử kịch bản demo một lượt** (mục "Kịch bản demo"), xong thì reset lại ở bước 2 để máy sạch trước giờ trình bày.
+
+Sự cố giữa chừng: xem "Xử lý sự cố"; cần sửa nhanh thì dùng cách dự phòng B (`docker compose stop frontend` rồi `streamlit run app.py`).
+
+## Reset trước ngày bảo vệ
+
+Đưa máy demo về trạng thái sạch: xóa mọi dự án, dataset, phiên bản, nhật ký; nạp lại 2 tài khoản mẫu. **Lệnh này xóa vĩnh viễn dữ liệu demo**, hãy tự chạy khi đã chắc chắn:
+
+```bash
+# Windows (PowerShell)
+powershell -ExecutionPolicy Bypass -File scripts/reset-demo.ps1
+# Linux/macOS
+bash scripts/reset-demo.sh
+```
+
+Script chỉ làm bốn việc, không build lại image và không đụng container frontend:
+
+1. Dừng container backend (không xóa).
+2. Trong container Postgres, database `data_cleaning`: `DROP SCHEMA public CASCADE; CREATE SCHEMA public;` (không xóa volume `dcp_postgres_data`).
+3. Xóa **nội dung** volume `dcp_storage` (file dataset), không xóa volume nào khác.
+4. Bật lại backend, chạy `alembic upgrade head` rồi `scripts/seed.py`.
+
+Phải gõ `RESET` để tiếp tục (thêm `-Yes` hoặc `-y` để bỏ qua câu hỏi này).
+
+Nếu backend chạy **ngoài Docker** (file nằm ở `backend/data/storage` trên máy), thêm `-HostStorage` (`--host-storage` với bash) để script dọn luôn nội dung thư mục đó. Việc này có câu xác nhận riêng (gõ `XOA-FILE`) và `-Yes` không bỏ qua được câu đó. Script chỉ động tới đúng thư mục `backend/data/storage` trong repo.
+
+Chạy trên một compose project khác (ví dụ để thử): `-Project dcp-test -ComposeFile <file compose>` (`-p`, `-f` với bash).
 
 ## Xử lý sự cố
 
@@ -137,7 +208,8 @@ khá sạch nên **chỉ dùng cho phần Mapping cột**: nó gần như không
 | Gọi AI chậm hoặc lỗi | Mạng/khóa/hạn mức | Hệ thống tự dùng gợi ý theo quy tắc sau tối đa `AI_TIMEOUT_SECONDS` giây; lỗi được ghi vào bảng `ai_requests` (không ghi dữ liệu hay khóa) |
 | Tải file lên bị từ chối | Quá `MAX_UPLOAD_MB` (413), sai định dạng, hoặc quá `MAX_UPLOAD_ROWS`/`MAX_UPLOAD_COLUMNS` | Dùng CSV/XLSX/XLS hợp lệ, thu nhỏ file hoặc tăng giới hạn trong `.env` |
 | Windows báo lỗi chữ tiếng Việt khi chạy script | Console dùng bảng mã cp1252 | Đặt `PYTHONUTF8=1` trước khi chạy script |
-| Muốn xóa sạch dữ liệu demo | — | `docker compose down -v` rồi làm lại từ Bước 2 |
+| Mở http://localhost:8501 thấy giao diện cũ (menu không có mục **Thư viện quy tắc**, không có hàng menu ngang dưới thanh logo) | Container `dcp_frontend` dựng từ image cũ; `docker compose up -d` không tự build lại | Kiểm tra: `docker image ls data-cleaning-platform-frontend` (cột CREATED phải là thời điểm gần đây). Dùng bản mới bằng `docker compose up -d --build frontend` (cách chính); dự phòng: `docker compose stop frontend` rồi chạy `streamlit run app.py` ở Bước 5 |
+| Muốn xóa sạch dữ liệu demo | — | Chạy script reset bên dưới (mục "Reset trước ngày bảo vệ") |
 
 ## Lệnh tắt (Makefile)
 

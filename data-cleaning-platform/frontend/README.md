@@ -33,10 +33,11 @@ Trạng thái dữ liệu mẫu nằm trong phiên trình duyệt: tải lại t
 2. **Tải lên** `sample_data/khach_hang_tieu_de_khac.csv` (tiêu đề khác chuẩn: "Họ và tên", "Số ĐT"...).
 3. **Tổng quan dữ liệu**: thống kê cột, điểm chất lượng, biểu đồ.
 4. **Mapping cột**: "Điền ví dụ" → "Gợi ý mapping" → "Xác nhận mapping".
-5. **Gợi ý làm sạch**: "Sinh gợi ý" → "Chấp nhận tất cả" → tab "Xem trước và áp dụng" → "Xem trước" → "Áp dụng thay đổi".
-   Các bước đổi tên cột từ Mapping chạy **sau cùng** (gợi ý được sinh theo tên cột hiện tại).
-6. **Lịch sử phiên bản**: Hoàn tác / Làm lại / Khôi phục. **Xuất dữ liệu**: gauge điểm chất lượng, tải CSV/Excel.
-7. **Nhật ký hoạt động**, **Tài khoản** (đổi mật khẩu); đăng nhập admin để xem **Quản trị người dùng**, **Thống kê hệ thống**.
+5. **Làm sạch dữ liệu**: thêm bước từ Gợi ý AI, Quy tắc có sẵn hoặc Tự viết quy tắc vào cùng hàng đợi → sắp xếp → "Xem trước" → xác nhận "Áp dụng thay đổi".
+   Bản xem trước có ba tab Thay đổi theo ô / Dữ liệu sau / Dữ liệu trước. Các bước đổi tên cột từ Mapping chạy **sau cùng**.
+6. **Thư viện quy tắc**: chọn Quy tắc hệ thống hoặc Quy tắc của dự án; mở quy tắc để sửa luôn nạp vào trình soạn, mỗi lần lưu tạo một quy tắc mới.
+7. **Lịch sử phiên bản**: Hoàn tác / Làm lại / Khôi phục. **Xuất dữ liệu**: gauge điểm chất lượng, tải CSV/Excel.
+8. **Nhật ký hoạt động**, **Tài khoản** (đổi mật khẩu); đăng nhập admin để xem **Quản trị người dùng**, **Thống kê hệ thống**.
 
 Dataset có sẵn trong chế độ mẫu: `sample_data/khach_hang_ban.csv` (nhiều lỗi cài sẵn). Dùng ô "Mở dataset theo ID" với ID 1.
 
@@ -45,9 +46,8 @@ Dataset có sẵn trong chế độ mẫu: `sample_data/khach_hang_ban.csv` (nhi
 ```bash
 BACKEND_URL=http://localhost:8000 streamlit run app.py     # mặc định http://localhost:8000
 ```
-Hoặc `docker compose up -d --build` ở thư mục gốc dự án. Hiện backend mới cài đặt phần đăng ký/đăng nhập;
-các endpoint còn lại xem [docs/BACKEND_TODO.md](../docs/BACKEND_TODO.md). Chưa cài đặt thì giao diện hiện
-thông báo lỗi thân thiện (không lộ traceback).
+Hoặc `docker compose up -d --build` ở thư mục gốc dự án. Khi backend chưa sẵn sàng, giao diện hiện
+thông báo lỗi có nút thử lại thay vì lộ traceback.
 
 ## Biến môi trường
 

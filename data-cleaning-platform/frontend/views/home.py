@@ -1,10 +1,15 @@
 """Trang chủ: lời chào, dataset đang làm việc và lối tắt tới từng bước của quy trình."""
 
+import pandas as pd
 import streamlit as st
 
+from api_client import audit_me
+from components.dataset_summary import project_dataset_summaries
+from components.formatting import format_datetime, format_number
+from components.labels import action_label
 from components.navigation import FLOW_KEYS, PRODUCT_TAGLINE, get_page
-from components.ui import empty_state, page_shell, section
-from state import get_context, get_current_user
+from components.ui import data_table, empty_state, error_state, page_shell, safe_call, section
+from state import get_context, get_current_user, get_token
 
 # Mô tả giữ trong một dòng (<= ~28 ký tự) để các thẻ cao đều nhau mà không cần chiều cao cố định.
 _STEP_DESCRIPTIONS = {
@@ -37,6 +42,52 @@ else:
         cta_label="Tải dữ liệu lên",
         cta_page="upload",
     )
+
+project_id = context.get("project_id")
+if project_id:
+    summaries, error = project_dataset_summaries(get_token(), project_id)
+    if error is not None:
+        error_state(error, key="home_datasets")
+    elif summaries:
+        with section("Dataset gần đây", caption="Trong project đang chọn"):
+            rows = [
+                {
+                    "Tên file": item["dataset"]["original_filename"],
+                    "Phiên bản": f"v{item['version']['version_number']}",
+                    "Kích thước": (
+                        f"{format_number(item['version']['row_count'])} dòng · "
+                        f"{format_number(item['version']['column_count'])} cột"
+                    ),
+                    "Điểm chất lượng": (
+                        f"{item['quality']['overall_score']:.1f}".replace(".", ",") + " / 100"
+                    ),
+                }
+                for item in summaries
+            ]
+            data_table(pd.DataFrame(rows), height=min(420, 56 + 36 * len(rows)))
+    else:
+        with section("Dataset gần đây"):
+            st.caption("Project đang chọn chưa có dataset.")
+else:
+    with section("Dataset gần đây"):
+        st.caption("Chọn project ở thanh trên để xem các dataset.")
+
+logs, error = safe_call("Đang tải hoạt động gần đây…", audit_me, get_token())
+if error is not None:
+    error_state(error, key="home_activity")
+elif logs:
+    with section("Hoạt động gần đây"):
+        rows = [
+            {
+                "Thời gian": format_datetime(log["created_at"]),
+                "Hành động": action_label(log["action"]),
+            }
+            for log in logs[:5]
+        ]
+        data_table(pd.DataFrame(rows), height=min(260, 56 + 36 * len(rows)))
+else:
+    with section("Hoạt động gần đây"):
+        st.caption("Chưa có hoạt động nào.")
 
 st.subheader("Quy trình làm sạch")
 for start in range(0, len(FLOW_KEYS), _COLUMNS):

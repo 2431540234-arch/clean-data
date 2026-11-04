@@ -22,11 +22,9 @@ from components.navigation import get_page
 from components.ui import (
     badge_html,
     error_state,
-    metric_card,
     page_shell,
     safe_call,
     section,
-    stepper,
 )
 from state import get_context, get_token, set_context, set_flash
 
@@ -75,21 +73,29 @@ def _status(choice: str, source: str, suggested: str | None) -> str:
     return badge_html("Chọn tay", "primary")
 
 
-def _mapping_rows(sources: list[str], mapping: dict[str, Any]) -> list[str]:
-    """Vẽ từng dòng chọn cột đích; trả danh sách lựa chọn theo thứ tự cột nguồn."""
+def _mapping_rows(
+    sources: list[str], samples: dict[str, str], mapping: dict[str, Any]
+) -> list[str]:
+    """Vẽ từng dòng chọn cột chuẩn; trả danh sách lựa chọn theo thứ tự cột nguồn."""
     targets: list[str] = mapping["targets"]
     suggestion: dict[str, str | None] = mapping["suggestion"]
     options = [KEEP, *targets]
-    head = st.columns([3, 3, 2])
-    for column, title in zip(head, ["Cột trong file", "Đổi thành", "Trạng thái"], strict=True):
+    widths = [2.2, 2, 2.8, 1.6]
+    head = st.columns(widths)
+    for column, title in zip(
+        head, ["Cột nguồn", "Giá trị mẫu", "Cột chuẩn", "Trạng thái"], strict=True
+    ):
         column.caption(title)
 
     choices = []
     for index, source in enumerate(sources):
         suggested = suggestion.get(source)
         default = options.index(suggested) if suggested in options else 0
-        name_col, choice_col, status_col = st.columns([3, 3, 2], vertical_alignment="center")
+        name_col, sample_col, choice_col, status_col = st.columns(
+            widths, vertical_alignment="center"
+        )
         name_col.markdown(f'<span class="dc-mono">{escape(source)}</span>', unsafe_allow_html=True)
+        sample_col.caption(samples.get(source, "—"))
         choice = choice_col.selectbox(
             f"Đổi tên cột {source} thành",
             options,
@@ -108,8 +114,10 @@ def _confirm(version_id: int, steps: list[dict[str, Any]]) -> None:
     st.switch_page(get_page("suggestions").file)
 
 
-page_shell("Mapping cột", "Đổi tên cột của file về schema chuẩn")
-stepper("mapping")
+page_shell(
+    "Mapping cột",
+    "Đưa tên cột của file về bộ tên chuẩn; các bước đổi tên được áp dụng ở bước Làm sạch",
+)
 active = dataset_context_bar()
 version_id = active.version["id"]
 
@@ -131,64 +139,88 @@ if context.get("pending_steps") and context.get("pending_version_id") == version
         icon=":material/info:",
     )
 
-with section(
-    "Schema chuẩn",
-    caption=(
-        "Nhập tên các cột chuẩn muốn dùng (mỗi dòng một tên). "
-        "Hệ thống sẽ gợi ý cột nào của file khớp với cột nào."
-    ),
-):
-    st.text_area(
-        "Danh sách cột chuẩn",
-        key=_TARGET_KEY,
-        height=150,
-        placeholder="ho_ten\nemail\nso_dien_thoai",
+def _result_panel(
+    version_id: int,
+    sources: list[str],
+    samples: dict[str, str],
+    mapping: dict[str, Any] | None,
+) -> None:
+    """Bảng "Kết quả gợi ý": chọn cột chuẩn cho từng cột nguồn rồi xác nhận."""
+    if mapping is None:
+        st.info(
+            "Chưa có gợi ý. Nhập tên cột chuẩn ở bên trái rồi bấm “Gợi ý mapping”.",
+            icon=":material/info:",
+        )
+        return
+    matched = sum(1 for s in sources if mapping["suggestion"].get(s) is not None)
+    st.markdown(
+        badge_html(f"{matched} khớp", "success")
+        + (
+            " " + badge_html(f"{len(sources) - matched} cần xem lại", "warning")
+            if matched < len(sources)
+            else ""
+        ),
+        unsafe_allow_html=True,
     )
-    suggest_col, example_col, _ = st.columns([2, 2, 4])
-    if suggest_col.button(
-        "Gợi ý mapping", type="primary", icon=":material/auto_fix_high:", use_container_width=True
+    choices = _mapping_rows(sources, samples, mapping)
+    steps = build_rename_steps(sources, choices)
+    duplicates = duplicate_names(sources, choices)
+    if duplicates:
+        names = ", ".join(f"“{d}”" for d in duplicates)
+        st.error(
+            f"Không thể có hai cột cùng tên sau khi đổi: {names}. Hãy chỉnh lại lựa chọn.",
+            icon=":material/error:",
+        )
+    elif not steps:
+        st.info(
+            "Không có cột nào cần đổi tên. Bạn có thể bỏ qua bước này.", icon=":material/info:"
+        )
+    st.caption(
+        f"Cột để “{KEEP}” sẽ giữ nguyên tên. "
+        f"Xác nhận sẽ tạo {len(steps)} bước “Đổi tên cột” để xem trước và áp dụng ở bước Làm sạch."
+    )
+    reset_col, confirm_col = st.columns([1, 2])
+    if reset_col.button("Đặt lại", use_container_width=True, help="Quay về gợi ý ban đầu"):
+        set_context(mapping={**mapping, "nonce": mapping["nonce"] + 1})
+        st.rerun()
+    if confirm_col.button(
+        "Xác nhận và sang bước 4",
+        type="primary",
+        icon=":material/check:",
+        disabled=bool(duplicates) or not steps,
+        use_container_width=True,
     ):
-        _request_suggestion(version_id)
-    example_col.button("Điền ví dụ", on_click=_fill_example, use_container_width=True)
+        _confirm(version_id, steps)
 
-if mapping is None:
-    st.stop()
 
-st.subheader("Kiểm tra và chỉnh mapping")
-choices = _mapping_rows(sources, mapping)
-
-steps = build_rename_steps(sources, choices)
-matched = sum(1 for s in sources if mapping["suggestion"].get(s) is not None)
-for cell, (label, value) in zip(
-    st.columns(3),
-    [
-        ("Cột trong file", str(len(sources))),
-        ("Gợi ý khớp", f"{matched}/{len(sources)}"),
-        ("Sẽ đổi tên", str(len(steps))),
-    ],
-    strict=True,
-):
-    with cell:
-        metric_card(label, value)
-
-duplicates = duplicate_names(sources, choices)
-if duplicates:
-    names = ", ".join(f"“{d}”" for d in duplicates)
-    st.error(
-        f"Không thể có hai cột cùng tên sau khi đổi: {names}. Hãy chỉnh lại lựa chọn.",
-        icon=":material/error:",
-    )
-elif not steps:
-    st.info("Không có cột nào cần đổi tên. Bạn có thể bỏ qua bước này.", icon=":material/info:")
-
-confirm_col, skip_col, _ = st.columns([3, 2, 3])
-if confirm_col.button(
-    "Xác nhận mapping",
-    type="primary",
-    icon=":material/check:",
-    disabled=bool(duplicates) or not steps,
-    use_container_width=True,
-):
-    _confirm(version_id, steps)
+_, skip_col = st.columns([5, 1.6])
 if skip_col.button("Bỏ qua bước này", icon=":material/skip_next:", use_container_width=True):
     st.switch_page(get_page("suggestions").file)
+
+samples = {
+    c["column_name"]: str(c["sample_values"][0]) if c["sample_values"] else "—"
+    for c in profile["columns"]
+}
+left, right = st.columns([1, 1.9], gap="large")
+with left, section("Bộ cột chuẩn"):
+    st.text_area(
+        "Tên cột chuẩn, mỗi dòng một tên",
+        key=_TARGET_KEY,
+        height=190,
+        placeholder="ho_ten\nemail\nso_dien_thoai",
+    )
+    if st.button(
+        "Gợi ý mapping",
+        type="primary",
+        icon=":material/auto_fix_high:",
+        use_container_width=True,
+    ):
+        _request_suggestion(version_id)
+    st.button("Điền ví dụ", on_click=_fill_example, use_container_width=True)
+    st.info(
+        "Gợi ý dùng từ điển đồng nghĩa tiếng Việt và so khớp gần đúng. "
+        "Khi có khóa AI, các cột khó sẽ được AI gợi ý thêm.",
+        icon=":material/lightbulb:",
+    )
+with right, section("Kết quả gợi ý"):
+    _result_panel(version_id, sources, samples, mapping)

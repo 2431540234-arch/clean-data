@@ -113,15 +113,17 @@ def _suggest(at, text=TARGETS_TEXT):
 
 
 def _boxes(at):
-    """Ô chọn cột đích của bảng mapping (bỏ ô chọn project/dataset của thanh ngữ cảnh)."""
-    return [s for s in at.selectbox if not str(s.key).startswith("ctx_open")]
+    """Ô chọn cột đích, bỏ các ô chọn project/dataset trong header và thanh ngữ cảnh."""
+    excluded = ("ctx_open", "header_")
+    return [s for s in at.selectbox if not str(s.key).startswith(excluded)]
 
 
 def test_page_renders_schema_form_without_suggestion(run_view, call_api):
     at = _page(run_view, call_api)
     assert not at.exception
-    assert [t.label for t in at.text_area] == ["Danh sách cột chuẩn"]
+    assert [t.label for t in at.text_area] == ["Tên cột chuẩn, mỗi dòng một tên"]
     assert not _boxes(at)  # chưa gợi ý thì chưa có bảng mapping
+    assert any("Chưa có gợi ý" in i.value for i in at.info)
 
 
 def test_page_empty_schema_shows_problem(run_view, call_api):
@@ -135,17 +137,19 @@ def test_page_shows_suggestions_with_status_and_counts(run_view, call_api):
     assert len(_boxes(at)) == len(HEADERS)
     defaults = [s.value for s in _boxes(at)]
     assert defaults == ["ho_ten", KEEP, "so_dien_thoai", "ngay_sinh", "tuoi", "tinh_thanh", KEEP]
-    metrics = {m.label: m.value for m in at.metric}
-    assert metrics == {"Cột trong file": "7", "Gợi ý khớp": "5/7", "Sẽ đổi tên": "5"}
     html = " ".join(m.value for m in at.markdown)
+    assert "5 khớp" in html and "2 cần xem lại" in html
     assert html.count("Chưa khớp") == 2 and html.count("Gợi ý<") == 5
+    assert any("tạo 5 bước" in c.value for c in at.caption)
+    # cột "Giá trị mẫu" lấy từ profiling: mỗi cột nguồn có một giá trị mẫu
+    assert any(c.value == "Nguyễn Văn An" for c in at.caption)
 
 
 def test_page_manual_choice_and_confirm_builds_steps(run_view, call_api):
     at = _suggest(_page(run_view, call_api))
     _boxes(at)[1].set_value("email").run()  # chọn tay cho "Email liên hệ"
-    assert {m.label: m.value for m in at.metric}["Sẽ đổi tên"] == "6"
-    find_button(at, "Xác nhận mapping").click().run()
+    assert any("tạo 6 bước" in c.value for c in at.caption)
+    find_button(at, "Xác nhận và sang bước 4").click().run()
     context = at.session_state["work_context"]
     steps = context["pending_steps"]
     assert len(steps) == 6 and context["pending_version_id"] == context["version_id"]
@@ -161,15 +165,24 @@ def test_page_duplicate_target_blocks_confirm(run_view, call_api):
     at = _suggest(_page(run_view, call_api))
     _boxes(at)[1].set_value("ho_ten").run()  # trùng với "Họ và tên" -> ho_ten
     assert any("hai cột cùng tên" in e.value for e in at.error)
-    assert find_button(at, "Xác nhận mapping").disabled
+    assert find_button(at, "Xác nhận và sang bước 4").disabled
     assert "pending_steps" not in at.session_state["work_context"]
 
 
 def test_page_nothing_to_rename_disables_confirm(run_view, call_api):
     at = _suggest(_page(run_view, call_api), text="Ghi chú")  # chỉ chuẩn trùng tên cột đã có
     assert any("Không có cột nào cần đổi tên" in i.value for i in at.info)
-    assert find_button(at, "Xác nhận mapping").disabled
+    assert find_button(at, "Xác nhận và sang bước 4").disabled
     assert any(b.label == "Bỏ qua bước này" for b in at.button)
+
+
+def test_page_reset_restores_suggested_choices(run_view, call_api):
+    at = _suggest(_page(run_view, call_api))
+    suggested = [s.value for s in _boxes(at)]
+    _boxes(at)[1].set_value("email").run()
+    assert [s.value for s in _boxes(at)][1] == "email"
+    find_button(at, "Đặt lại").click().run()
+    assert [s.value for s in _boxes(at)] == suggested
 
 
 def test_page_example_button_fills_schema(run_view, call_api):

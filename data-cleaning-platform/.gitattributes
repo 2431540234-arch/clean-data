@@ -1,0 +1,2 @@
+# PDF là tệp nhị phân: không so sánh/kiểm tra khoảng trắng như văn bản.
+*.pdf binary

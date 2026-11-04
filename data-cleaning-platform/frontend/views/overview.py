@@ -24,11 +24,18 @@ from components.ui import (
     metric_card,
     page_shell,
     safe_call,
-    stepper,
+    section,
 )
 from state import get_token
 
 _EMPTY = "—"
+# Tiêu chí điểm chất lượng của backend (services/quality.py): khóa, nhãn, trọng số %
+_CRITERIA = (
+    ("completeness", "Đầy đủ", 30),
+    ("uniqueness", "Không trùng lặp", 20),
+    ("validity", "Hợp lệ", 30),
+    ("consistency", "Nhất quán", 20),
+)
 _HIGH_MISSING_RATIO = 0.1  # từ ngưỡng này cột được ghi chú "Thiếu nhiều"
 _DISTRIBUTION_ROWS = 1000  # số dòng đầu dùng để vẽ phân bố giá trị của một cột
 
@@ -96,15 +103,24 @@ def _issue_table(issues: list[dict[str, Any]]) -> None:
     )
 
 
-def _issues_section(version_id: int) -> list[dict[str, Any]]:
-    """Tab "Lỗi đã phát hiện"; trả danh sách lỗi (rỗng nếu chưa lấy được) để vẽ biểu đồ."""
-    issues, error = safe_call("Đang tải danh sách lỗi…", get_issues, get_token(), version_id)
-    if error is not None:
-        st.warning(f"Chưa lấy được danh sách lỗi: {error.detail}", icon=":material/warning:")
-        return []
+def _severity_counts(issues: list[dict[str, Any]]) -> str:
+    """Ví dụ "4 cao · 6 trung bình · 3 thấp" (bỏ mức không có lỗi)."""
+    parts = [
+        f"{count} {severity_label(level).lower()}"
+        for level in ("high", "medium", "low")
+        if (count := sum(1 for i in issues if i["severity"] == level))
+    ]
+    return " · ".join(parts)
+
+
+def _issues_section(issues: list[dict[str, Any]] | None, error_detail: str | None) -> None:
+    """Tab "Lỗi đã phát hiện"."""
+    if issues is None:
+        st.warning(f"Chưa lấy được danh sách lỗi: {error_detail}", icon=":material/warning:")
+        return
     if not issues:
         st.success("Không phát hiện lỗi nào trong dữ liệu.", icon=":material/check_circle:")
-        return []
+        return
     summary = " ".join(
         badge_html(
             f"{severity_label(level)}: {sum(1 for i in issues if i['severity'] == level)}",
@@ -115,7 +131,22 @@ def _issues_section(version_id: int) -> list[dict[str, Any]]:
     )
     st.markdown(f"**{len(issues)} nhóm lỗi** · {summary}", unsafe_allow_html=True)
     _issue_table(issues)
-    return issues
+
+
+def _criteria_section(quality: dict[str, Any]) -> None:
+    """Điểm chất lượng theo bốn tiêu chí (0..1) kèm trọng số; điểm tổng = Σ trọng số × tiêu chí."""
+    with section(
+        "Điểm chất lượng theo tiêu chí",
+        caption="Điểm tổng (0–100) là trung bình có trọng số của bốn tiêu chí (mỗi tiêu chí 0–1).",
+    ):
+        for cell, (key, label, weight) in zip(st.columns(4), _CRITERIA, strict=True):
+            value = quality.get(key)
+            with cell:
+                st.markdown(f"{label} ({weight}%)")
+                if value is None:
+                    st.caption("Chưa có dữ liệu")
+                    continue
+                st.progress(min(max(float(value), 0.0), 1.0), text=f"{value:.2f}".replace(".", ","))
 
 
 def _distribution(dataset_id: int, version_id: int, columns: list[dict[str, Any]]) -> None:
@@ -135,11 +166,23 @@ def _distribution(dataset_id: int, version_id: int, columns: list[dict[str, Any]
 
 
 page_shell("Tổng quan dữ liệu", "Thống kê từng cột và điểm chất lượng của phiên bản hiện tại")
-stepper("overview")
 active = dataset_context_bar()
 version = active.version
 
-rerun = st.button("Phân tích lại", icon=":material/refresh:", help="Chạy lại phân tích dữ liệu")
+_, rerun_col, next_col = st.columns([5, 1.6, 2.6])
+rerun = rerun_col.button(
+    "Phân tích lại",
+    icon=":material/refresh:",
+    help="Chạy lại phân tích dữ liệu",
+    use_container_width=True,
+)
+if next_col.button(
+    "Tiếp tục: Mapping cột",
+    type="primary",
+    icon=":material/arrow_forward:",
+    use_container_width=True,
+):
+    st.switch_page(get_page("mapping").file)
 profile, error = load_profile(version["id"], force=rerun)
 if error is not None:
     error_state(error, key="overview")
@@ -159,21 +202,39 @@ if not columns:
     st.stop()
 
 quality, _ = safe_call("Đang tính điểm chất lượng…", get_quality, get_token(), version["id"])
+issues, issues_error = safe_call(
+    "Đang tải danh sách lỗi…", get_issues, get_token(), version["id"]
+)
 average_missing = sum(c["null_ratio"] for c in columns) / len(columns)
+worst = max(columns, key=lambda c: c["null_ratio"])
 score = f"{quality['overall_score']:.1f}".replace(".", ",") + " / 100" if quality else "—"
 
-for cell, (label, value) in zip(
-    st.columns(4),
-    [
-        ("Số dòng", format_number(version["row_count"])),
-        ("Số cột", format_number(len(columns))),
-        ("Tỉ lệ thiếu trung bình", format_percent(average_missing)),
-        ("Điểm chất lượng", score),
-    ],
-    strict=True,
-):
+kpis: list[tuple[str, str, str | None]] = [
+    ("Số dòng", format_number(version["row_count"]), f"Phiên bản {version['version_number']}"),
+    (
+        "Số cột",
+        format_number(len(columns)),
+        f"{sum(1 for c in columns if c['null_count'])} cột có ô thiếu",
+    ),
+    (
+        "Tỉ lệ thiếu trung bình",
+        format_percent(average_missing),
+        (
+            f"Cao nhất: {worst['column_name']} ({format_percent(worst['null_ratio'])})"
+            if worst["null_ratio"] > 0
+            else "Không có ô thiếu"
+        ),
+    ),
+]
+if issues is not None:
+    kpis.append(("Nhóm lỗi phát hiện", format_number(len(issues)), _severity_counts(issues)))
+kpis.append(("Điểm chất lượng", score, "Trên thang 100"))
+for cell, (label, value, note) in zip(st.columns(len(kpis)), kpis, strict=True):
     with cell:
-        metric_card(label, value)
+        metric_card(label, value, note=note)
+
+if quality:
+    _criteria_section(quality)
 
 tab_stats, tab_issues, tab_charts = st.tabs(["Thống kê cột", "Lỗi đã phát hiện", "Biểu đồ"])
 with tab_stats:
@@ -192,7 +253,7 @@ with tab_stats:
     _column_detail(columns)
 
 with tab_issues:
-    issues = _issues_section(version["id"])
+    _issues_section(issues, issues_error.detail if issues_error else None)
 
 with tab_charts:
     left, right = st.columns([3, 2])
@@ -206,10 +267,3 @@ with tab_charts:
         st.markdown("**Lỗi theo mức độ nghiêm trọng**")
         render_issue_chart(issues)
     _distribution(active.dataset["id"], version["id"], columns)
-
-if st.button(
-    "Tiếp tục: Mapping cột",
-    type="primary",
-    icon=":material/arrow_forward:",
-):
-    st.switch_page(get_page("mapping").file)

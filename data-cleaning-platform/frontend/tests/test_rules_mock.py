@@ -243,6 +243,14 @@ def test_changed_cells_returns_none_when_rows_cannot_be_matched():
     assert changed_cells(before, [{"a": "KHAC"}], []) is None
 
 
+def test_deleted_rows_are_identified_in_before_sample():
+    from components.diff_table import deleted_before_rows
+
+    df = frame(a=[" x", "y", "y", "z"], b=["1", "2", "2", "3"])
+    before, after, diffs = _preview(df, step("drop_duplicates"), step("trim_whitespace", "a"))
+    assert deleted_before_rows(before, after, diffs) == {2}
+
+
 def test_visible_marks_whitespace_and_blanks():
     from components.diff_table import _visible
 

@@ -131,10 +131,12 @@ def test_generate_shows_cards_and_counts(run_view):
         "Đã từ chối": "0",
     }
     assert len([b for b in at.button if b.key and b.key.startswith("accept_")]) == 8
-    assert len(at.expander) == 8 and len(at.code) == 8  # rule JSON trong từng thẻ
+    suggestion_expanders = [e for e in at.expander if e.label == "Xem quy tắc JSON"]
+    assert len(suggestion_expanders) == 8  # rule JSON trong từng thẻ
+    assert len(at.code) == 9  # 8 quy tắc AI và cấu trúc JSON của tab tự viết
     html = " ".join(m.value for m in at.markdown)
     assert "Độ tin cậy thấp" in html and "AI đề xuất" in html
-    assert any("Chấp nhận ít nhất một gợi ý" in i.value for i in at.info)
+    assert any("Chọn một bước từ" in i.value for i in at.info)
 
 
 def test_accept_and_reject_update_status_and_counts(run_view):
@@ -176,8 +178,10 @@ def test_preview_is_required_before_apply(run_view):
     metrics = {m.label: m.value for m in at.metric}
     assert metrics["Dòng bị ảnh hưởng"] == "1" and metrics["Mẫu xem trước"] == "30 dòng"
     labels = [t.label for t in at.tabs]
-    assert labels[:2] == ["Gợi ý", "Xem trước và áp dụng"]
-    assert labels[2:] == ["Thay đổi theo ô", "Dữ liệu sau", "Dữ liệu trước"]
+    assert "Gợi ý AI (8)" in labels
+    assert "Quy tắc có sẵn" in labels
+    assert "Tự viết quy tắc" in labels
+    assert labels[-3:] == ["Thay đổi theo ô", "Dữ liệu sau", "Dữ liệu trước"]
 
 
 def test_changing_selection_invalidates_preview(run_view):
@@ -188,6 +192,39 @@ def test_changing_selection_invalidates_preview(run_view):
     _accept(at, second)
     assert at.button(key="apply_changes").disabled
     assert any("Lựa chọn đã thay đổi" in i.value for i in at.info)
+
+
+def test_adding_queue_step_relocks_apply_until_preview_is_refreshed(run_view):
+    at = _generated(run_view)
+    _accept(at, _ids(at)[0])
+    find_button(at, "Xem trước").click().run()
+    assert not at.button(key="apply_changes").disabled
+
+    at.selectbox(key="sys_rule_select").set_value("drop_duplicates").run()
+    find_button(at, "+ Thêm vào hàng đợi").click().run()
+    assert not at.exception
+    assert at.button(key="apply_changes").disabled
+    assert any("Lựa chọn đã thay đổi" in i.value for i in at.info)
+
+    find_button(at, "Xem trước").click().run()
+    assert not at.button(key="apply_changes").disabled
+
+
+def test_ai_and_library_steps_share_reorderable_queue(run_view):
+    at = _generated(run_view)
+    _accept(at, _ids(at)[0])
+    at.selectbox(key="sys_rule_select").set_value("drop_duplicates").run()
+    find_button(at, "+ Thêm vào hàng đợi").click().run()
+
+    entries = at.session_state["work_context"]["rule_queue"]
+    assert [entry["source"] for entry in entries] == ["suggestion", "system"]
+    at.button(key="q_down_0").click().run()
+    entries = at.session_state["work_context"]["rule_queue"]
+    assert [entry["source"] for entry in entries] == ["system", "suggestion"]
+
+    at.button(key="q_del_0").click().run()
+    entries = at.session_state["work_context"]["rule_queue"]
+    assert len(entries) == 1 and entries[0]["source"] == "suggestion"
 
 
 def test_apply_after_confirmation_creates_version_and_resets_state(run_view):
@@ -241,10 +278,10 @@ def test_mapping_steps_run_last_and_can_be_toggled(run_view):
     assert any("Đổi tên cột từ bước Mapping" in m.value for m in at.markdown)
     find_button(at, "Sinh gợi ý").click().run()
     _accept(at, _ids(at)[1])  # trim_whitespace(email) chạy TRƯỚC khi đổi tên
-    page_text = " ".join(m.value for m in at.markdown)
+    page_text = " ".join([m.value for m in at.markdown] + [c.value for c in at.caption])
     assert "2 bước sẽ được áp dụng" in page_text
-    steps_text = page_text[page_text.index("2 bước sẽ được áp dụng") :]
-    assert steps_text.index("Cắt khoảng trắng thừa") < steps_text.index("Đổi tên cột “email”")
+    assert "Cắt khoảng trắng thừa" in page_text
+    assert "Đổi tên cột “email”" in page_text
 
     find_button(at, "Xem trước").click().run()
     at.session_state["apply_changes__confirmed"] = True

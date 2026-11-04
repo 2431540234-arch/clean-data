@@ -9,6 +9,7 @@ from components.formatting import format_number
 from components.ui import data_table
 
 _HIGHLIGHT = "background-color: #fef3c7; color: #92400e; font-weight: 600"
+_DELETED = "background-color: #fee2e2; color: #991b1b; font-weight: 700"
 _MAX_DIFF_ROWS = 500
 _EMPTY = "(trống)"
 
@@ -25,31 +26,21 @@ def _visible(value: Any) -> str:
     return f'"{text}"' if text != text.strip() else text
 
 
-def changed_cells(
+def _after_to_before_rows(
     before_rows: list[dict[str, Any]],
     after_rows: list[dict[str, Any]],
     diffs: list[dict[str, Any]] | None,
-) -> set[tuple[int, str]] | None:
-    """Tập (vị trí dòng trong `after_rows`, tên cột) của các ô thay đổi; cột mới coi là đổi hết.
-
-    Dòng trong `after_rows` không có chỉ số gốc, nên ghép với `before_rows` bằng cách áp các `diffs`
-    lên dòng "trước" rồi khớp theo thứ tự (các dòng còn lại là dãy con, dòng bị xóa bị bỏ qua).
-
-    Returns:
-        None nếu không ghép được (không có diffs hoặc kết quả không khớp dãy con).
-    """
+) -> list[int] | None:
+    """Ghép thứ tự các dòng sau với dòng gốc; trả None nếu không thể đối chiếu."""
     before, after = _frame(before_rows), _frame(after_rows)
     if diffs is None:
         return None
     shared = [c for c in after.columns if c in before.columns]
-    new_columns = [c for c in after.columns if c not in before.columns]
 
     expected = before[shared].copy().astype(str)
-    cells_by_before_row: dict[int, set[str]] = {}
     for diff in diffs:
         if diff["column"] in shared:
             expected.at[diff["row_index"], diff["column"]] = str(diff["after"] or "")
-            cells_by_before_row.setdefault(diff["row_index"], set()).add(diff["column"])
 
     expected_rows = expected.to_numpy().tolist()
     after_values = after[shared].astype(str).to_numpy().tolist()
@@ -61,6 +52,38 @@ def changed_cells(
             position += 1
     if position != len(after_values):
         return None
+    return mapping
+
+
+def deleted_before_rows(
+    before_rows: list[dict[str, Any]],
+    after_rows: list[dict[str, Any]],
+    diffs: list[dict[str, Any]] | None,
+) -> set[int] | None:
+    """Chỉ số các dòng gốc không còn trong dữ liệu sau."""
+    mapping = _after_to_before_rows(before_rows, after_rows, diffs)
+    if mapping is None:
+        return None
+    retained = set(mapping)
+    return set(range(len(before_rows))) - retained
+
+
+def changed_cells(
+    before_rows: list[dict[str, Any]],
+    after_rows: list[dict[str, Any]],
+    diffs: list[dict[str, Any]] | None,
+) -> set[tuple[int, str]] | None:
+    """Tập (vị trí dòng trong `after_rows`, tên cột) của các ô thay đổi."""
+    before, after = _frame(before_rows), _frame(after_rows)
+    mapping = _after_to_before_rows(before_rows, after_rows, diffs)
+    if mapping is None:
+        return None
+    shared = [c for c in after.columns if c in before.columns]
+    new_columns = [c for c in after.columns if c not in before.columns]
+    cells_by_before_row: dict[int, set[str]] = {}
+    for diff in diffs or []:
+        if diff["column"] in shared:
+            cells_by_before_row.setdefault(diff["row_index"], set()).add(diff["column"])
 
     cells: set[tuple[int, str]] = set()
     for after_position, before_index in enumerate(mapping):
@@ -136,4 +159,32 @@ def render_diff_table(
             )
             st.dataframe(styled, use_container_width=True, hide_index=True, height=360)
     with tab_before:
-        data_table(before, height=360)
+        deleted = deleted_before_rows(before_rows, after_rows, diffs)
+        if deleted is None:
+            st.caption("Không xác định được chính xác các dòng đã bị xóa.")
+            data_table(before, height=360)
+        else:
+            marked_before = before.copy()
+            marked_before.insert(
+                0,
+                "Trạng thái",
+                ["Bị xóa" if index in deleted else "" for index in range(len(before))],
+            )
+            st.caption("Dòng có nhãn “Bị xóa” đã bị loại khỏi dữ liệu sau.")
+            styled_before = marked_before.style.apply(
+                lambda frame: pd.DataFrame(
+                    [
+                        [_DELETED if index in deleted else "" for _ in frame.columns]
+                        for index in range(len(frame))
+                    ],
+                    index=frame.index,
+                    columns=frame.columns,
+                ),
+                axis=None,
+            )
+            st.dataframe(
+                styled_before,
+                use_container_width=True,
+                hide_index=True,
+                height=360,
+            )

@@ -13,6 +13,7 @@ from api_client import (
 from components.formatting import format_date, format_number
 from components.labels import ROLE_LABELS, role_label
 from components.ui import (
+    admin_subnav,
     badge_html,
     confirm_button,
     empty_state,
@@ -157,6 +158,7 @@ def _manage_panel(user: dict[str, Any], me: int | None) -> None:
 
 
 page_shell("Quản trị người dùng", "Khóa/mở tài khoản, đổi quyền, đặt lại mật khẩu", admin=True)
+admin_subnav()
 
 users, error = safe_call("Đang tải danh sách người dùng…", admin_list_users, get_token())
 if error is not None:
@@ -171,9 +173,9 @@ for cell, (label, value) in zip(
     st.columns(4),
     [
         ("Tổng người dùng", format_number(len(users))),
-        ("Quản trị viên", format_number(sum(1 for u in users if u["role"] == "admin"))),
         ("Đang hoạt động", format_number(sum(1 for u in users if u["is_active"]))),
         ("Đã khóa", format_number(sum(1 for u in users if not u["is_active"]))),
+        ("Quản trị viên", format_number(sum(1 for u in users if u["role"] == "admin"))),
     ],
     strict=True,
 ):

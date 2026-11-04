@@ -995,10 +995,26 @@ def _export_excel(call: Call) -> bytes:
         ],
         columns=["Chỉ tiêu", "Giá trị"],
     )
+    from components.labels import issue_type_label, severity_label
+
+    issues = pd.DataFrame(
+        [
+            (
+                i["column_name"] or "(cả bảng)",
+                issue_type_label(i["issue_type"]),
+                severity_label(i["severity"]),
+                i["affected_count"],
+                i["message"],
+            )
+            for i in _build_issues(version, frame)
+        ],
+        columns=["Cột", "Loại lỗi", "Mức độ", "Số dòng", "Mô tả"],
+    )
     buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:  # 3 sheet như backend /export
         frame.to_excel(writer, sheet_name="Dữ liệu", index=False)
         summary.to_excel(writer, sheet_name="Báo cáo chất lượng", index=False)
+        issues.to_excel(writer, sheet_name="Lỗi đã phát hiện", index=False)
     return buffer.getvalue()
 
 
@@ -1010,6 +1026,15 @@ def _export_excel(call: Call) -> bytes:
 def _project_of_dataset(dataset_id: int) -> int | None:
     dataset = next((d for d in db()["datasets"] if d["id"] == dataset_id), None)
     return dataset["project_id"] if dataset else None
+
+
+def _export_audit(call: Call, content: bytes, fmt: str) -> tuple:
+    """Dòng nhật ký "dataset.export" như backend/app/api/v1/export.py (_record)."""
+    assert call.user is not None
+    version = _get_version(int(call.args[0]), call.user)
+    new_value = {"format": fmt, "version_number": version["version_number"], "bytes": len(content)}
+    dataset_id = version["dataset_id"]
+    return "dataset.export", "dataset", dataset_id, _project_of_dataset(dataset_id), None, new_value
 
 
 # Tên handler -> hàm trả (action, entity_type, entity_id, project_id, old_value, new_value).
@@ -1052,6 +1077,8 @@ _AUDIT_RULES: dict[str, Callable[[Call, Any], tuple]] = {
     "_change_password": lambda c, r: (
         "auth.change_password", "user", c.user["id"], None, None, None
     ),
+    "_export_csv": lambda c, r: _export_audit(c, r, "csv"),
+    "_export_excel": lambda c, r: _export_audit(c, r, "excel"),
 }  # fmt: skip
 
 
@@ -1231,3 +1258,47 @@ def _admin_stats(call: Call) -> dict[str, Any]:
         "total_ai_calls": state["ai_calls"],
         "average_quality_score": round(sum(scores) / len(scores), 1) if scores else 0.0,
     }
+
+
+@route("GET", r"/rules/by-project/(\d+)")
+def _mock_list_rule_templates(call: Call) -> list[dict[str, Any]]:
+    project_id = int(call.args[0])
+    return [r for r in db().get("rules", []) if r.get("project_id") == project_id]
+
+
+@route("POST", r"/rules/by-project/(\d+)")
+def _mock_create_rule_template(call: Call) -> dict[str, Any]:
+    project_id = int(call.args[0])
+    body = call.json
+    state = db()
+    if "rules" not in state:
+        state["rules"] = []
+    rule_id = state.get("next_rule_id", 1)
+    state["next_rule_id"] = rule_id + 1
+    created_at = _now()
+    rule_set = body.get("rule_set", {"steps": []})
+    new_rule = {
+        "id": rule_id,
+        "project_id": project_id,
+        "name": body.get("name", "Quy tắc"),
+        "description": body.get("description"),
+        "rule_set": rule_set,
+        "rule_type": "ruleset",
+        "target_column": None,
+        "params": rule_set,
+        "is_active": True,
+        "created_by": (call.user or {}).get("id"),
+        "created_at": created_at,
+        "updated_at": created_at,
+    }
+    state["rules"].append(new_rule)
+    return new_rule
+
+
+@route("DELETE", r"/rules/(\d+)")
+def _mock_delete_rule_template(call: Call) -> dict[str, str]:
+    rule_id = int(call.args[0])
+    state = db()
+    rules = state.get("rules", [])
+    state["rules"] = [r for r in rules if r.get("id") != rule_id]
+    return {"message": "Đã xóa quy tắc."}

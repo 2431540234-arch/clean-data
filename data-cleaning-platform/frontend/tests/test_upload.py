@@ -117,7 +117,7 @@ def test_upload_page_initial_state(run_view):
     at = run_view("upload", role="user")
     assert not at.exception
     assert at.title[0].value == "Tải lên"
-    assert at.selectbox[0].label == "Project"  # ô chọn project để tải lên
+    assert any(selectbox.label == "Dự án" for selectbox in at.selectbox)
     assert any(b.label == "Tải lên" and b.disabled for b in at.button)  # chưa chọn file
     assert any("tối đa 50 MB" in c.value for c in at.caption)
 
@@ -126,31 +126,38 @@ def test_upload_page_without_projects_guides_user(run_view):
     db = mock_api._seed()
     db["projects"] = []
     at = run_view("upload", role="user", state={"_mock_db": db})
-    assert any("Bạn chưa có project nào" in m.value for m in at.markdown)
-    assert any(b.label.startswith("Đến Dashboard") for b in at.button)
+    assert any("Bạn chưa có dự án nào" in m.value for m in at.markdown)
+    assert any(b.label.startswith("Đến Dự án") for b in at.button)
+
+
+def _after(result):
+    """Ngữ cảnh làm việc ngay sau khi tải lên (giống views.upload._store_result)."""
+    dataset = result["dataset"]
+    return {
+        "project_id": dataset["project_id"],
+        "dataset_id": dataset["id"],
+        "version_id": result["first_version"]["id"],
+        "upload_result": result,
+    }
 
 
 def test_upload_page_shows_result_with_preview(run_view, call_api):
     result, _, db = _upload(
         call_api, "khach_hang.csv", (FIXTURES / "cp1258_sample.csv").read_bytes()
     )
-    at = run_view(
-        "upload", role="user", state={"_mock_db": db, "work_context": {"upload_result": result}}
-    )
+    at = run_view("upload", role="user", state={"_mock_db": db, "work_context": _after(result)})
     assert not at.exception
-    assert any("Đã tải lên “khach_hang.csv”" in s.value for s in at.success)
-    assert {m.label for m in at.metric} == {"Số dòng", "Số cột", "Dung lượng", "Encoding"}
+    assert any("khach_hang.csv" in m.value for m in at.markdown)
+    assert {m.label for m in at.metric} == {"Số dòng", "Số cột", "Dung lượng", "Bảng mã"}
     assert len(at.dataframe) == 1
     assert any(b.label == "Tiếp tục: Tổng quan dữ liệu" for b in at.button)
 
 
 def test_upload_page_excel_sheet_picker(run_view, call_api):
     result, _, db = _upload(call_api, "nhieu_sheet.xlsx", _multi_sheet_xlsx())
-    at = run_view(
-        "upload", role="user", state={"_mock_db": db, "work_context": {"upload_result": result}}
-    )
-    assert "Sheet" in [s.label for s in at.selectbox]
-    at.selectbox(key=f"sheet_{result['dataset']['id']}").set_value("DanhMuc").run()
+    at = run_view("upload", role="user", state={"_mock_db": db, "work_context": _after(result)})
+    assert "Sheet" in [s.label for s in at.radio]
+    at.radio(key=f"sheet_{result['dataset']['id']}").set_value("DanhMuc").run()
     find_button(at, "Dùng sheet này").click().run()
     assert at.session_state["work_context"]["upload_result"]["dataset"]["sheet_name"] == "DanhMuc"
 

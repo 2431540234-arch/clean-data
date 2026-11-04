@@ -7,7 +7,7 @@ from typing import Any
 import streamlit as st
 
 from api_client import APIConnectionError, APIError, get_me, login, register
-from components.navigation import PRODUCT_NAME, PRODUCT_SHORT_NAME, PRODUCT_TAGLINE
+from components.navigation import PRODUCT_NAME, PRODUCT_SHORT_NAME
 from components.theme import ASSETS_DIR
 from components.ui import data_source_banner, error_state, page_shell, safe_call
 from state import set_flash, set_logged_in
@@ -24,10 +24,9 @@ _LOGIN_FAILURE_STATUSES = frozenset({400, 401, 403, 404})
 def _brand_html() -> str:
     mark = base64.b64encode((ASSETS_DIR / "logo-mark.svg").read_bytes()).decode()
     return (
-        '<div class="dc-brand">'
+        '<div class="dc-brand dc-brand--left">'
         f'<img class="dc-brand__mark" alt="" src="data:image/svg+xml;base64,{mark}">'
-        f'<div class="dc-brand__name" role="heading" aria-level="1">{PRODUCT_NAME}</div>'
-        f'<p class="dc-brand__tagline">{PRODUCT_TAGLINE}</p>'
+        f'<div class="dc-brand__name">{PRODUCT_SHORT_NAME}</div>'
         "</div>"
     )
 
@@ -157,13 +156,29 @@ def _register_tab() -> None:
 
 page_shell(public=True)
 
-_, center, _ = st.columns([1, 1.5, 1])
-with center:
-    st.markdown(_brand_html(), unsafe_allow_html=True)
-    data_source_banner(show_hint=True)
-    with st.container(border=True):
+with st.container(key="dc-login-layout"):
+    intro_col, form_col = st.columns([1.1, 1], gap="large", vertical_alignment="center")
+    with intro_col:
+        st.markdown(_brand_html(), unsafe_allow_html=True)
+        st.title(PRODUCT_NAME, anchor=False)
+        st.caption(
+            "Làm sạch dữ liệu Excel/CSV tiếng Việt với gợi ý thông minh, "
+            "xem trước trước khi áp dụng và lưu lịch sử phiên bản."
+        )
+        st.markdown(
+            "1. Phát hiện trùng lặp, ô thiếu, sai định dạng ngày/SĐT/email\n"
+            "2. Gợi ý quy tắc làm sạch hoặc tự viết quy tắc\n"
+            "3. Hoàn tác bất kỳ lúc nào, xuất CSV/Excel sạch"
+        )
+
+    with form_col, st.container(border=True):
+        data_source_banner(show_hint=True)
         tab_login, tab_register = st.tabs(["Đăng nhập", "Đăng ký"])
         with tab_login:
+            st.subheader("Chào mừng trở lại")
+            st.caption("Đăng nhập để tiếp tục làm việc với dữ liệu của bạn.")
             _login_tab()
         with tab_register:
+            st.subheader("Tạo tài khoản")
+            st.caption("Đăng ký để bắt đầu làm sạch dữ liệu.")
             _register_tab()

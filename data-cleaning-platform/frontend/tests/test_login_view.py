@@ -30,7 +30,9 @@ def test_renders_brand_tabs_and_mock_banner(run_view):
     assert not at.exception
     assert [t.label for t in at.tabs] == ["Đăng nhập", "Đăng ký"]
     html = " ".join(m.value for m in at.markdown)
-    assert "Data Cleaning Platform" in html
+    assert at.title[0].value == "Data Cleaning Platform"
+    assert "DataClean" in html
+    assert "Phát hiện trùng lặp" in html
     assert "Chế độ dữ liệu mẫu" in html and "admin@example.com" in html
 
 

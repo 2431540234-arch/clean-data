@@ -9,10 +9,11 @@ from typing import Any, Literal
 
 import pandas as pd
 import streamlit as st
+from streamlit.errors import StreamlitAPIException
 
 from api_client import APIConnectionError, APIError, data_source_hint, data_source_label
 from components.auth_guard import require_admin, require_login
-from components.navigation import FLOW_KEYS, get_page
+from components.navigation import FLOW_KEYS, get_page, get_page_key
 from state import init_state, is_logged_in, logout, pop_flash
 
 BadgeKind = Literal["neutral", "primary", "success", "warning", "error"]
@@ -42,6 +43,7 @@ def page_shell(
     title: str | None = None,
     subtitle: str | None = None,
     *,
+    page_key: str | None = None,
     admin: bool = False,
     public: bool = False,
 ) -> None:
@@ -50,6 +52,7 @@ def page_shell(
     Args:
         title: tiêu đề trang (h1); None để tự vẽ tiêu đề (ví dụ trang đăng nhập).
         subtitle: mô tả ngắn một dòng dưới tiêu đề.
+        page_key: key của trang hiện tại để vẽ breadcrumb và active menu header.
         admin: True nếu chỉ admin được xem (lớp bảo vệ thứ hai, ngoài việc ẩn menu).
         public: True nếu trang không cần đăng nhập.
     """
@@ -59,6 +62,13 @@ def page_shell(
     elif not public:
         require_login()
     show_flash()
+    if not public and is_logged_in():
+        from components.header import render_header
+
+        current_page = page_key or get_page_key(title)
+        render_header(current_page)
+        if current_page in FLOW_KEYS:  # wireframe: chỉ 6 trang của quy trình có thanh bước
+            stepper(current_page)
     if title:
         st.title(title, anchor=False)
     if subtitle:
@@ -172,40 +182,66 @@ def section(title: str | None = None, *, caption: str | None = None):
     return container
 
 
-def metric_card(label: str, value: str | int | float, *, help: str | None = None) -> None:
-    """Thẻ số liệu có viền."""
+def metric_card(
+    label: str,
+    value: str | int | float,
+    *,
+    help: str | None = None,
+    note: str | None = None,
+    delta: str | None = None,
+    delta_color: str = "off",
+) -> None:
+    """Thẻ số liệu có viền; `note` là chú thích nhỏ, `delta` là độ chênh so với phiên bản khác."""
     with st.container(border=True):
-        st.metric(label, value, help=help)
+        st.metric(label, value, delta=delta, delta_color=delta_color, help=help)  # type: ignore[arg-type]
+        if note:
+            st.caption(note)
 
 
-def stepper(current: str) -> None:
-    """Thanh các bước của luồng làm sạch, đánh dấu bước hiện tại (key trang)."""
+def _step_state(current: str | None, key: str) -> str:
+    if current not in FLOW_KEYS:
+        return "todo"
     current_index = FLOW_KEYS.index(current)
-    items = []
-    for index, key in enumerate(FLOW_KEYS):
-        title = escape(get_page(key).title)
-        if index < current_index:
-            state, mark, hint = "done", "✓", '<span class="dc-sr-only"> (đã xong)</span>'
-        elif index == current_index:
-            state, mark, hint = (
-                "current",
-                str(index + 1),
-                '<span class="dc-sr-only"> (hiện tại)</span>',
-            )
-        else:
-            state, mark, hint = "todo", str(index + 1), ""
-        aria = ' aria-current="step"' if state == "current" else ""
-        items.append(
-            f'<li class="dc-step dc-step--{state}"{aria}>'
-            f'<span class="dc-step__num" aria-hidden="true">{mark}</span>'
-            f"<span>{title}{hint}</span></li>"
-        )
-    st.markdown(
-        '<nav aria-label="Các bước làm sạch dữ liệu"><ol class="dc-stepper">'
-        + "".join(items)
-        + "</ol></nav>",
-        unsafe_allow_html=True,
-    )
+    step_index = FLOW_KEYS.index(key)
+    if step_index < current_index:
+        return "done"
+    return "current" if step_index == current_index else "todo"
+
+
+def stepper(current: str | None) -> None:
+    """Thanh sáu bước có thể bấm, đánh dấu trạng thái theo trang hiện tại."""
+    with st.container(key="dc-stepper"):
+        columns = st.columns(len(FLOW_KEYS), gap="small")
+        for index, (column, key) in enumerate(zip(columns, FLOW_KEYS, strict=True)):
+            state = _step_state(current, key)
+            if state == "todo":
+                icon = ":material/radio_button_unchecked:"
+                state_label = "chưa làm"
+            elif state == "current":
+                icon = ":material/radio_button_checked:"
+                state_label = "hiện tại"
+            else:
+                icon = ":material/check_circle:"
+                state_label = "đã xong"
+            with column, st.container(key=f"dc-step-item-{index}-{state}"):
+                safe_page_link(
+                    get_page(key).file,
+                    label=f"{index + 1}. {get_page(key).title} · {state_label}",
+                    icon=icon,
+                    use_container_width=True,
+                )
+
+
+def admin_subnav() -> None:
+    """Nút chuyển nhanh giữa hai trang quản trị (wireframe: Thống kê hệ thống / Người dùng)."""
+    _, stats_col, users_col = st.columns([4.5, 2, 1.5])
+    for column, key, label in (
+        (stats_col, "admin_stats", "Thống kê hệ thống"),
+        (users_col, "admin_users", "Người dùng"),
+    ):
+        with column:
+            # Không dùng disabled (chữ xám không đạt WCAG AA); Streamlit tự tô trang hiện tại.
+            safe_page_link(get_page(key).file, label=label, use_container_width=True)
 
 
 def data_table(
@@ -262,3 +298,16 @@ def _open_confirm_dialog(key: str, title: str, message: str, confirm_label: str,
             st.rerun()
 
     dialog()
+
+
+def safe_page_link(page_file: str, label: str, icon: str | None = None, **kwargs: Any) -> None:
+    """Wrapper an toàn cho st.page_link để không bị lỗi StreamlitPageNotFoundError trong AppTest."""
+    try:
+        st.page_link(page_file, label=label, icon=icon, **kwargs)
+    except StreamlitAPIException:
+        try:
+            rel = page_file.split("/")[-1]
+            st.page_link(rel, label=label, icon=icon, **kwargs)
+        except StreamlitAPIException:
+            if st.button(label, icon=icon, **kwargs):
+                st.switch_page(page_file)

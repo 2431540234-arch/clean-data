@@ -96,6 +96,19 @@
     transition: background-color var(--ease), border-color var(--ease), color var(--ease);
 }
 
+.stApp .stFormSubmitButton > button[data-testid^="stBaseButton-primary"]:hover,
+.stApp .stButton > button[data-testid^="stBaseButton-primary"]:hover,
+.stApp .stDownloadButton > button[data-testid^="stBaseButton-primary"]:hover {
+    background: #1d4ed8 !important;
+    background-color: #1d4ed8 !important;
+    border-color: #1d4ed8 !important;
+    color: #ffffff !important;
+}
+
+.stApp a:hover {
+    color: var(--c-primary-text);
+}
+
 .stAlert {
     border-radius: var(--radius-sm);
 }
@@ -125,6 +138,10 @@
 .dc-brand {
     text-align: center;
     margin: var(--sp-6) 0 var(--sp-6);
+}
+
+.dc-brand--left {
+    text-align: left;
 }
 
 .dc-brand__mark {
@@ -288,20 +305,32 @@
 }
 
 .dc-step--done .dc-step__num {
-    background: var(--c-primary);
+    background: #166534;
     border-color: transparent;
     color: #fff;
 }
 
 .dc-step--current {
-    background: var(--c-primary-tint);
-    color: var(--c-primary-text);
+    background: #2563EB !important;
+    color: #ffffff !important;
     font-weight: 600;
 }
 
 .dc-step--current .dc-step__num {
-    border-color: var(--c-primary-text);
-    color: var(--c-primary-text);
+    background: #ffffff !important;
+    border-color: #ffffff !important;
+    color: #2563EB !important;
+    font-weight: 700;
+}
+
+.dc-step--todo {
+    color: #374151 !important;
+    font-weight: 500;
+}
+
+.dc-step--todo .dc-step__num {
+    color: #374151 !important;
+    border-color: #94a3b8;
 }
 
 /* Tên cột/giá trị kỹ thuật: font đơn cách, giữ màu chữ thường (inline code của Streamlit có
@@ -373,3 +402,241 @@
 [class*="st-key-sev-high-"] { border-left: 4px solid #DC2626 !important; }
 [class*="st-key-sev-medium-"] { border-left: 4px solid #D97706 !important; }
 [class*="st-key-sev-low-"] { border-left: 4px solid #94A3B8 !important; }
+
+/* ---------- Header 2 hàng & Responsive ---------- */
+.dc-header-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.dc-logo-badge {
+    background: #2563EB;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+}
+
+.dc-logo-text {
+    font-weight: 700;
+    font-size: 16px;
+    color: #1e293b;
+}
+
+.dc-breadcrumb-sep {
+    color: #94a3b8;
+}
+
+.dc-breadcrumb-area {
+    color: #64748b;
+    white-space: nowrap;
+}
+
+.dc-breadcrumb-title {
+    font-weight: 600;
+    color: #0f172a;
+    white-space: nowrap;
+}
+
+/* Chi tiết phiên bản: nhãn và độ chênh được xuống dòng thay vì bị cắt thành "…" */
+.st-key-dc-version-kpis [data-testid="stMetricLabel"] *,
+.st-key-dc-version-kpis [data-testid="stMetricDelta"] * {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+}
+
+/* Thông tin file sau khi tải lên: số liệu nhỏ hơn để "2,0 KB" không bị cắt thành "2,0 …" */
+.st-key-dc-file-facts [data-testid="stMetricValue"] {
+    font-size: 1.35rem;
+}
+
+.st-key-dc-file-facts [data-testid="stMetricValue"] > div {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+}
+
+.dc-header-user-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+}
+
+.dc-user-avatar {
+    width: 28px;
+    height: 28px;
+    background: #2563EB;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+}
+
+.dc-user-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dc-user-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+    max-width: 120px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dc-header-divider {
+    height: 1px;
+    background: #e2e8f0;
+    margin: 8px 0 16px 0;
+}
+
+/* Links are real Streamlit page_link widgets; state colors keep text contrast above WCAG AA. */
+[class*="st-key-dc-step-item-"][class*="-done"] [data-testid="stPageLink"] a {
+    color: #166534;
+    background: #f0fdf4;
+}
+
+[class*="st-key-dc-step-item-"][class*="-current"] [data-testid="stPageLink"] a {
+    color: #fff;
+    background: #2563eb;
+    font-weight: 600;
+}
+
+[class*="st-key-dc-step-item-"][class*="-todo"] [data-testid="stPageLink"] a {
+    color: #374151;
+    background: #f8fafc;
+}
+
+[class*="st-key-dc-nav-item-"][class*="-active"] [data-testid="stPageLink"] a {
+    color: #fff;
+    background: #2563eb;
+    font-weight: 600;
+}
+
+.st-key-dc-stepper [data-testid="stPageLink"] a > span:last-child {
+    min-width: 0;
+    white-space: normal;
+}
+
+.st-key-dc-stepper [data-testid="stPageLink"] a > span:last-child [data-testid="stMarkdownContainer"] {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.st-key-dc-header-nav {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+.st-key-dc-header-nav [data-testid="stPageLink"] a {
+    justify-content: center;
+    white-space: nowrap;
+    gap: 0.25rem;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+}
+
+.st-key-dc-header-nav [data-testid="stHorizontalBlock"] {
+    min-width: 0;
+    gap: 0 !important;
+}
+
+.st-key-dc-header-nav [data-testid="stColumn"] {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+}
+
+@media (max-width: 768px) {
+    .st-key-dc-header-nav {
+        overflow-x: auto;
+        scrollbar-width: thin;
+    }
+
+    .st-key-dc-header-nav [data-testid="stHorizontalBlock"] {
+        min-width: max-content;
+    }
+
+    .st-key-dc-header-nav [data-testid="stColumn"] {
+        flex: 1 0 auto !important;
+        min-width: 9rem !important;
+    }
+}
+
+/* Responsive 375px: keep the header compact and allow the menu to scroll horizontally. */
+@media (max-width: 640px) {
+    .dc-header-brand {
+        flex-wrap: wrap;
+    }
+
+    .st-key-dc-header-top [data-testid="stHorizontalBlock"] {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .st-key-dc-header-top [data-testid="stColumn"] {
+        flex: unset !important;
+        min-width: 0 !important;
+        width: auto !important;
+    }
+
+    .st-key-dc-stepper [data-testid="stHorizontalBlock"] {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .st-key-dc-stepper [data-testid="stColumn"] {
+        flex: unset !important;
+        min-width: 0 !important;
+        width: auto !important;
+    }
+
+    .st-key-dc-stepper [data-testid="stPageLink"] a {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+        width: 100%;
+        max-width: 100%;
+        padding: 6px 3px;
+        text-align: center;
+        white-space: normal;
+        line-height: 1.15;
+    }
+
+    .st-key-dc-stepper [data-testid="stPageLink"] a > span:last-child {
+        flex: 0 1 100%;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100%;
+        white-space: normal !important;
+    }
+
+    .st-key-dc-stepper [data-testid="stPageLink"] a > span:last-child [data-testid="stMarkdownContainer"] {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+
+    .dc-user-name {
+        max-width: 70px;
+    }
+}

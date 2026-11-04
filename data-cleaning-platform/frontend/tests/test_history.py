@@ -120,6 +120,40 @@ def test_page_lists_versions_newest_first_with_current_marker(run_view, call_api
     ]
 
 
+def test_page_detail_panel_defaults_to_current_and_view_button_switches(run_view, call_api):
+    db = _with_versions(call_api, [DEDUP], [TRIM])
+    at = run_view("history", role="user", state={**CONTEXT, "_mock_db": db})
+    assert not at.exception
+    text = " ".join(m.value for m in at.markdown)
+    assert "Chi tiết phiên bản 3" in text
+    metrics = {m.label: m for m in at.metric}
+    assert set(metrics) == {"Số dòng", "Số cột", "Điểm chất lượng"}
+    assert metrics["Số dòng"].value == "29" and not metrics["Số dòng"].delta  # v3 không đổi dòng
+    assert any(b.label == "Đang xem" and b.disabled for b in at.button)
+    assert find_button(at, "Hoàn tác (về v2)")
+
+    at.button(key="view_2").click().run()
+    metrics = {m.label: m for m in at.metric}
+    assert metrics["Số dòng"].delta == "-1 so v1"
+    assert not metrics["Số cột"].delta
+
+    at.button(key="view_1").click().run()
+    assert not at.exception
+    text = " ".join(m.value for m in at.markdown)
+    assert "Chi tiết phiên bản 1" in text
+    assert any("Bản gốc khi tải lên" in c.value for c in at.caption)
+    assert {m.label: m.value for m in at.metric}["Số dòng"] == "30"
+    assert _current(at.session_state["_mock_db"]) == 3  # chỉ xem, không đổi phiên bản hiện tại
+
+
+def test_page_next_button_leads_to_export(run_view, call_api, monkeypatch):
+    switched = []
+    monkeypatch.setattr(st, "switch_page", lambda page: switched.append(page))
+    at = run_view("history", role="user", state=CONTEXT)
+    find_button(at, "Tiếp tục: Xuất dữ liệu").click().run()
+    assert switched == ["views/export.py"]
+
+
 def test_page_undo_and_redo_buttons(run_view, call_api):
     db = _with_versions(call_api, [DEDUP], [TRIM])
     at = run_view("history", role="user", state={**CONTEXT, "_mock_db": db})

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DatasetOut(BaseModel):
@@ -65,3 +65,32 @@ class DatasetRowsPage(BaseModel):
     limit: int
     columns: list[str]
     rows: list[DatasetPreviewRow]
+
+
+class UploadStartIn(BaseModel):
+    """Mở phiên tải lên theo từng phần: tên file và tổng dung lượng (byte) của file gốc."""
+
+    filename: str = Field(min_length=1, max_length=255)
+    size: int = Field(gt=0)
+
+
+class UploadSessionOut(BaseModel):
+    """Phiên tải lên đã mở: mã phiên và kích thước tối đa mỗi phần client được gửi."""
+
+    upload_id: str
+    part_size_bytes: int
+    max_bytes: int
+    expires_in_minutes: int
+
+
+class UploadPartOut(BaseModel):
+    """Kết quả nhận một phần: số thứ tự và tổng byte server đã nhận của phiên."""
+
+    index: int
+    received_bytes: int
+
+
+class UploadCompleteIn(BaseModel):
+    """Kết thúc phiên: tổng số phần đã gửi (đánh số 0..parts-1)."""
+
+    parts: int = Field(ge=1)

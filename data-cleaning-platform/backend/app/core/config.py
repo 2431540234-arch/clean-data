@@ -53,7 +53,12 @@ class Settings(BaseSettings):
     TRUST_PROXY_HEADERS: bool = False
 
     # Upload
-    MAX_UPLOAD_MB: int = 50
+    MAX_UPLOAD_MB: int = 50  # tải lên một lần (POST /datasets/upload), gồm cả Excel
+    # Tải theo từng phần (chỉ CSV): trần tổng sau ghép, kích thước mỗi phần, thời gian giữ phiên.
+    MAX_CHUNKED_UPLOAD_MB: int = 200
+    UPLOAD_PART_MB: int = 8
+    UPLOAD_SESSION_TTL_MINUTES: int = 60
+    UPLOAD_TMP_DIR: str = "data/tmp_uploads"  # tương đối so với thư mục backend/
     MAX_UPLOAD_ROWS: int = 1_000_000
     MAX_UPLOAD_COLUMNS: int = 500
 

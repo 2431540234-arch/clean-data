@@ -2,7 +2,9 @@
 
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 import pandas as pd
 from sqlalchemy.orm import Session
@@ -15,6 +17,7 @@ from app.repositories import dataset_repo
 from app.schemas.dataset import DatasetPreviewRow
 from app.services import storage
 from app.services.audit import log_action
+from app.services.ingestion.csv_stream import stream_csv_to_parquet
 from app.services.ingestion.reader import (
     ReadResult,
     file_type_from_name,
@@ -60,6 +63,74 @@ def preview_rows(frame: pd.DataFrame, limit: int = PREVIEW_ROWS) -> list[Dataset
     return rows
 
 
+def _persist_first_version(
+    db: Session,
+    user: User,
+    project: Project,
+    *,
+    safe_name: str,
+    file_type: str,
+    file_size: int,
+    encoding: str | None,
+    sheet_name: str | None,
+    row_count: int,
+    column_count: int,
+    store_files: Callable[[int, str], None],
+    ip_address: str | None,
+) -> tuple[Dataset, DatasetVersion]:
+    """Tạo dataset + phiên bản 1 + nhật ký; lỗi giữa chừng thì hoàn tác cả DB lẫn file đã lưu.
+
+    `store_files(dataset_id, version_key)` ghi file gốc và file Parquet của phiên bản 1.
+    """
+    dataset = None
+    try:
+        dataset = dataset_repo.create_dataset(
+            db,
+            project_id=project.id,
+            name=safe_name.rsplit(".", 1)[0][:255],
+            original_filename=safe_name,
+            uploaded_by=user.id,
+            file_type=file_type,
+            file_size=file_size,
+            encoding=encoding,
+            sheet_name=sheet_name,
+            commit=False,
+        )
+        key = storage.version_key(dataset.id, 1)
+        store_files(dataset.id, key)
+        version = dataset_repo.create_version(
+            db,
+            dataset_id=dataset.id,
+            version_number=1,
+            storage_path=key,
+            row_count=row_count,
+            column_count=column_count,
+            created_by=user.id,
+            change_summary="Tải lên ban đầu",
+            commit=False,
+        )
+        log_action(
+            db,
+            user.id,
+            "dataset.upload",
+            "dataset",
+            dataset.id,
+            project_id=project.id,
+            new_value={"filename": safe_name, "rows": row_count, "columns": column_count},
+            ip_address=ip_address,
+            commit=False,
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        if dataset is not None and dataset.id is not None:
+            _cleanup(dataset.id)
+        raise
+    db.refresh(dataset)
+    db.refresh(version)
+    return dataset, version
+
+
 def create_dataset_from_file(
     db: Session,
     user: User,
@@ -74,54 +145,68 @@ def create_dataset_from_file(
     result: ReadResult = read_dataset_file(content, safe_name)
     frame = result.dataframe
 
-    dataset = None
-    try:
-        dataset = dataset_repo.create_dataset(
-            db,
-            project_id=project.id,
-            name=safe_name.rsplit(".", 1)[0][:255],
-            original_filename=safe_name,
-            uploaded_by=user.id,
-            file_type=file_type,
-            file_size=len(content),
-            encoding=result.encoding,
-            sheet_name=result.used_sheet,
-            commit=False,
-        )
-        storage.save_bytes(storage.original_key(dataset.id, file_type), content)
-        key = storage.version_key(dataset.id, 1)
+    def store_files(dataset_id: int, key: str) -> None:
+        storage.save_bytes(storage.original_key(dataset_id, file_type), content)
         storage.save_dataframe_as_parquet(frame, key)
-        version = dataset_repo.create_version(
-            db,
-            dataset_id=dataset.id,
-            version_number=1,
-            storage_path=key,
-            row_count=len(frame),
-            column_count=len(frame.columns),
-            created_by=user.id,
-            change_summary="Tải lên ban đầu",
-            commit=False,
-        )
-        log_action(
-            db,
-            user.id,
-            "dataset.upload",
-            "dataset",
-            dataset.id,
-            project_id=project.id,
-            new_value={"filename": safe_name, "rows": len(frame), "columns": len(frame.columns)},
-            ip_address=ip_address,
-            commit=False,
-        )
-        db.commit()
-    except Exception:
-        db.rollback()
-        if dataset is not None and dataset.id is not None:
-            _cleanup(dataset.id)
-        raise
-    db.refresh(dataset)
-    db.refresh(version)
+
+    dataset, version = _persist_first_version(
+        db,
+        user,
+        project,
+        safe_name=safe_name,
+        file_type=file_type,
+        file_size=len(content),
+        encoding=result.encoding,
+        sheet_name=result.used_sheet,
+        row_count=len(frame),
+        column_count=len(frame.columns),
+        store_files=store_files,
+        ip_address=ip_address,
+    )
     return UploadOutcome(dataset, version, result.sheet_names, frame)
+
+
+def create_dataset_from_csv_path(
+    db: Session,
+    user: User,
+    project: Project,
+    filename: str | None,
+    source: Path,
+    ip_address: str | None = None,
+) -> UploadOutcome:
+    """Như create_dataset_from_file nhưng đọc CSV lớn từ đĩa theo luồng (file đã ghép từ các phần).
+
+    Chỉ nhận CSV. Không nạp cả file vào bộ nhớ khi đọc và khi lưu; kết quả giống xử lý cả file.
+    """
+    safe_name = sanitize_filename(filename)
+    file_type = file_type_from_name(safe_name)
+    if file_type != "csv":
+        raise ValidationAppError("Tải theo từng phần chỉ hỗ trợ file CSV.")
+    parquet_path = source.with_name(source.name + ".parquet")
+    try:
+        streamed = stream_csv_to_parquet(source, parquet_path)
+
+        def store_files(dataset_id: int, key: str) -> None:
+            storage.save_file(storage.original_key(dataset_id, file_type), source)
+            storage.save_file(key, streamed.parquet_path)
+
+        dataset, version = _persist_first_version(
+            db,
+            user,
+            project,
+            safe_name=safe_name,
+            file_type=file_type,
+            file_size=source.stat().st_size,
+            encoding=streamed.encoding,
+            sheet_name=None,
+            row_count=streamed.row_count,
+            column_count=len(streamed.columns),
+            store_files=store_files,
+            ip_address=ip_address,
+        )
+    finally:
+        parquet_path.unlink(missing_ok=True)
+    return UploadOutcome(dataset, version, [], streamed.preview)
 
 
 def _cleanup(dataset_id: int) -> None:

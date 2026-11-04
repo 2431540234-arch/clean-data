@@ -58,6 +58,7 @@ def _isolated_storage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Mọi test ghi file vào thư mục tạm (driver local), không bao giờ đụng thư mục thật/S3."""
     monkeypatch.setattr(settings, "STORAGE_BACKEND", "local")
     monkeypatch.setattr(settings, "STORAGE_LOCAL_DIR", str(tmp_path / "storage"))
+    monkeypatch.setattr(settings, "UPLOAD_TMP_DIR", str(tmp_path / "tmp_uploads"))
 
 
 @pytest.fixture(autouse=True)

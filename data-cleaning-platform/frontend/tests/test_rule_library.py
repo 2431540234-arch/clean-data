@@ -1,5 +1,6 @@
 """Kiểm thử thư viện quy tắc, trình soạn và hợp đồng API."""
 
+import json
 import re
 from pathlib import Path
 
@@ -173,6 +174,41 @@ def test_exported_rule_json_can_be_imported_without_data_loss(run_view):
         "description": "Rule dự án",
         **rule_set,
     }
+
+
+def test_export_json_button_serves_valid_ruleset_file(run_view, monkeypatch):
+    """Nút "Xuất JSON" là st.download_button và nội dung tải về khớp quy tắc đang soạn."""
+    served: list[dict] = []
+    original = st.download_button
+
+    def spy(label, data=None, **kwargs):
+        served.append({"label": label, "data": data, **kwargs})
+        return original(label, data=data, **kwargs)
+
+    monkeypatch.setattr(st, "download_button", spy)
+    steps = [{"op": "trim_whitespace", "column": "email", "params": {}}]
+    at = _open(
+        run_view,
+        rule_builder_name="Chuẩn hóa email",
+        rule_builder_desc="Rule dự án",
+        rule_builder_steps=steps,
+        rule_builder_step_ids=["step-1"],
+        builder_input_name="Chuẩn hóa email",
+        builder_input_desc="Rule dự án",
+    )
+    assert not at.exception
+
+    export = next(item for item in served if item["label"] == "Xuất JSON")
+    assert export["file_name"] == "ruleset.json"
+    assert export["mime"] == "application/json"
+    payload = export["data"]
+    raw = payload.encode("utf-8") if isinstance(payload, str) else payload
+    assert json.loads(raw.decode("utf-8")) == {
+        "name": "Chuẩn hóa email",
+        "description": "Rule dự án",
+        "steps": steps,
+    }
+    assert "Chuẩn hóa email" in raw.decode("utf-8")  # giữ nguyên tiếng Việt, không escape
 
 
 def test_preview_action_loads_steps_into_cleaning_queue(run_view):

@@ -105,7 +105,7 @@ def test_unknown_codes_and_levels_fall_back_to_raw_text():
 def test_dashboard_shows_dataset_count_and_hides_missing_score(run_view):
     at = run_view("dashboard", role="user")
     metrics = {m.label: m.value for m in at.metric}
-    assert metrics["Số dataset"] == "1" and "Điểm chất lượng TB" not in metrics
+    assert metrics["Số dataset"] == "1" and "Điểm TB theo dự án" not in metrics
     assert any("1 dataset" in c.value for c in at.caption)
 
 
@@ -113,7 +113,7 @@ def test_dashboard_shows_average_score_when_available(run_view, call_api):
     _, _, db = call_api("user", "get_quality", 1)
     at = run_view("dashboard", role="user", state={"_mock_db": db})
     metrics = {m.label: m.value for m in at.metric}
-    assert metrics["Điểm chất lượng TB"].endswith("/ 100")
+    assert metrics["Điểm TB theo dự án"].endswith("/ 100")
 
 
 def test_overview_lists_issues_with_severity(run_view):

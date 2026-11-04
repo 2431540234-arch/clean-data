@@ -241,16 +241,42 @@ def test_stats_page_shows_metrics_and_charts(run_view):
     at = run_view("admin_stats", role="admin")
     assert not at.exception
     assert {m.label: m.value for m in at.metric} == {
-        "Người dùng": "2",
-        "Quản trị viên": "1",
-        "Đang hoạt động": "2",
-        "Project": "3",
+        "Tổng người dùng": "2",
+        "Tổng dự án": "3",
         "Dataset": "1",
         "Lượt gọi AI": "0",
     }
+    assert any("2 hoạt động · 0 bị khóa" in c.value for c in at.caption)
     assert len(at.get("plotly_chart")) == 3  # 2 biểu đồ vành khuyên + gauge
     html = " ".join(m.value for m in at.markdown)
     assert "90,7 / 100" in html and "Tốt" in html
+    # chỉ hiện trường có trong schema /admin/stats: không biểu đồ theo ngày, không dịch vụ
+    unsupported = ("Hoạt động hệ thống", "Tình trạng dịch vụ")
+    assert not any(text in m.value for m in at.markdown for text in unsupported)
+
+
+def test_stats_page_hides_quality_gauge_without_score(run_view, monkeypatch):
+    stats = {
+        "total_users": 2,
+        "total_admins": 1,
+        "active_users": 2,
+        "total_projects": 0,
+        "total_datasets": 0,
+        "total_ai_calls": 0,
+        "average_quality_score": None,
+    }
+    monkeypatch.setattr(api_client, "admin_stats", lambda token: stats)
+    at = run_view("admin_stats", role="admin")
+    assert not at.exception
+    assert len(at.get("plotly_chart")) == 2
+    assert any("Chưa có dataset nào được tính điểm" in c.value for c in at.caption)
+
+
+def test_admin_pages_link_to_each_other(run_view):
+    for page, other_label in (("admin_users", "Thống kê hệ thống"), ("admin_stats", "Người dùng")):
+        at = run_view(page, role="admin")
+        labels = [b.label for b in at.button] + [link.proto.label for link in at.get("page_link")]
+        assert other_label in labels
 
 
 def test_stats_page_error_state(run_view, monkeypatch):

@@ -232,6 +232,18 @@ def stepper(current: str | None) -> None:
                 )
 
 
+def admin_subnav() -> None:
+    """Nút chuyển nhanh giữa hai trang quản trị (wireframe: Thống kê hệ thống / Người dùng)."""
+    _, stats_col, users_col = st.columns([4.5, 2, 1.5])
+    for column, key, label in (
+        (stats_col, "admin_stats", "Thống kê hệ thống"),
+        (users_col, "admin_users", "Người dùng"),
+    ):
+        with column:
+            # Không dùng disabled (chữ xám không đạt WCAG AA); Streamlit tự tô trang hiện tại.
+            safe_page_link(get_page(key).file, label=label, use_container_width=True)
+
+
 def data_table(
     df: pd.DataFrame,
     *,

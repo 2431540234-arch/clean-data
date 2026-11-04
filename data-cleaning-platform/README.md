@@ -93,6 +93,8 @@ docker compose exec backend python scripts/seed.py
 
 Frontend <http://localhost:8501>, backend <http://localhost:8000/docs>.
 
+Bản giao diện mới nhận ra bằng: menu ngang có đủ **Trang chủ · Dự án · Làm sạch dữ liệu · Thư viện quy tắc · Nhật ký · Tài khoản** (thêm **Quản trị** với admin), và thanh 6 bước chỉ hiện ở các trang của quy trình làm sạch.
+
 ### Kiểm thử
 
 ```bash
@@ -150,6 +152,7 @@ Script hỏi xác nhận (gõ `RESET`; thêm `-Yes` hoặc `-y` để bỏ qua),
 | Gọi AI chậm hoặc lỗi | Mạng/khóa/hạn mức | Hệ thống tự dùng gợi ý theo quy tắc sau tối đa `AI_TIMEOUT_SECONDS` giây; lỗi được ghi vào bảng `ai_requests` (không ghi dữ liệu hay khóa) |
 | Tải file lên bị từ chối | Quá `MAX_UPLOAD_MB` (413), sai định dạng, hoặc quá `MAX_UPLOAD_ROWS`/`MAX_UPLOAD_COLUMNS` | Dùng CSV/XLSX/XLS hợp lệ, thu nhỏ file hoặc tăng giới hạn trong `.env` |
 | Windows báo lỗi chữ tiếng Việt khi chạy script | Console dùng bảng mã cp1252 | Đặt `PYTHONUTF8=1` trước khi chạy script |
+| Mở http://localhost:8501 thấy giao diện cũ (menu không có mục **Thư viện quy tắc**, không có hàng menu ngang dưới thanh logo) | Container `dcp_frontend` dựng từ image cũ; `docker compose up -d` không tự build lại | Kiểm tra: `docker compose images frontend` (cột Created phải là thời điểm gần đây). Dùng bản mới bằng `docker compose up -d --build frontend`, hoặc `docker compose stop frontend` rồi chạy `streamlit run app.py` ở Bước 5 |
 | Muốn xóa sạch dữ liệu demo | — | Chạy script reset bên dưới (mục "Reset trước ngày bảo vệ") |
 
 ## Lệnh tắt (Makefile)

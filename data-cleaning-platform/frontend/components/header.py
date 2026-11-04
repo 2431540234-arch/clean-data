@@ -98,6 +98,23 @@ def render_header(current_page_key: str = "home") -> None:
             if projects:
                 options = {p["id"]: p["name"] for p in projects}
                 project_ids = list(options)
+                if active_project_id not in options and not context.get("dataset_id"):
+                    active_project_id = project_ids[0]
+                    set_context(
+                        project_id=active_project_id,
+                        project_name=options[active_project_id],
+                        dataset_id=None,
+                        dataset_name=None,
+                        version_id=None,
+                        upload_result=None,
+                        rule_queue=[],
+                        rule_queue_version_id=None,
+                        preview=None,
+                        pending_steps=None,
+                        pending_version_id=None,
+                        last_applied=None,
+                        mapping=None,
+                    )
                 current_index = (
                     project_ids.index(active_project_id) if active_project_id in options else 0
                 )

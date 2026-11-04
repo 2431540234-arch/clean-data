@@ -70,3 +70,10 @@ def test_header_project_switch_clears_project_scoped_context(run_view):
     assert context["rule_queue"] == [] and context["preview"] is None
     assert context["rule_queue_version_id"] is None
     assert context["pending_steps"] is None and context["pending_version_id"] is None
+
+
+def test_header_default_project_matches_work_context(run_view):
+    page = run_view("home", role="user")
+    context = page.session_state["work_context"]
+    assert context["project_id"] == 1
+    assert context["project_name"] == "Khách hàng 2026"

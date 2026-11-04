@@ -63,6 +63,27 @@ def _do_upload(project: dict[str, Any], uploaded: Any) -> None:
     st.rerun()
 
 
+def _change_upload_project(project_names: dict[int, str]) -> None:
+    project_id = st.session_state["upload_project"]
+    if project_id == get_context().get("project_id"):
+        return
+    set_context(
+        project_id=project_id,
+        project_name=project_names[project_id],
+        dataset_id=None,
+        dataset_name=None,
+        version_id=None,
+        upload_result=None,
+        rule_queue=[],
+        rule_queue_version_id=None,
+        preview=None,
+        pending_steps=None,
+        pending_version_id=None,
+        last_applied=None,
+        mapping=None,
+    )
+
+
 def _preview_frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
     return pd.DataFrame([row["values"] for row in rows])
 
@@ -79,20 +100,29 @@ def _show_result(result: dict[str, Any]) -> None:
     if dataset.get("sheet_name"):
         facts.append(("Sheet", dataset["sheet_name"]))
     else:
-        facts.append(("Encoding", dataset.get("encoding") or "—"))
-    for column, (label, value) in zip(st.columns(len(facts)), facts, strict=True):
-        with column:
-            metric_card(label, value)
+        facts.append(("Bảng mã", dataset.get("encoding") or "—"))
+    with section("Thông tin file"):
+        st.markdown(f"**Tên file:** {dataset['original_filename']}")
+        for column, (label, value) in zip(st.columns(len(facts)), facts, strict=True):
+            with column:
+                metric_card(label, value)
 
     sheet_names = result.get("sheet_names") or []
     if len(sheet_names) > 1:
-        with section("Chọn sheet", caption="File Excel có nhiều sheet. Chọn sheet cần làm sạch."):
+        with section(
+            "Chọn sheet",
+            caption="File Excel có nhiều sheet. Chọn sheet cần làm sạch.",
+        ):
             current = dataset.get("sheet_name")
             index = sheet_names.index(current) if current in sheet_names else 0
-            sheet = st.selectbox("Sheet", sheet_names, index=index, key=f"sheet_{dataset['id']}")
-            if sheet != current and st.button(
-                "Dùng sheet này", key="use_sheet", icon=":material/table_view:"
-            ):
+            sheet = st.radio(
+                "Sheet",
+                sheet_names,
+                index=index,
+                horizontal=True,
+                key=f"sheet_{dataset['id']}",
+            )
+            if sheet != current and st.button("Dùng sheet này", key="use_sheet"):
                 new_result, error = safe_call(
                     "Đang đọc sheet…", select_sheet, get_token(), dataset["id"], sheet
                 )
@@ -104,30 +134,27 @@ def _show_result(result: dict[str, Any]) -> None:
                     st.rerun()
 
     rows = result.get("preview_rows") or []
-    st.subheader("Xem trước dữ liệu")
-    if rows:
-        st.caption(f"{len(rows)} dòng đầu tiên của {format_number(version['row_count'])} dòng.")
-        data_table(_preview_frame(rows), height=320)
-    else:
-        st.info("Không có dòng nào để xem trước.", icon=":material/info:")
+    with section("Xem trước dữ liệu"):
+        if rows:
+            st.caption(
+                f"{len(rows)} dòng đầu tiên của {format_number(version['row_count'])} dòng."
+            )
+            data_table(_preview_frame(rows), height=320)
+        else:
+            st.info("Không có dòng nào để xem trước.", icon=":material/info:")
 
-    next_col, other_col, _ = st.columns([2, 2, 3])
-    if next_col.button(
+    if st.button(
         "Tiếp tục: Tổng quan dữ liệu",
         type="primary",
         icon=":material/arrow_forward:",
         use_container_width=True,
     ):
         st.switch_page(get_page("overview").file)
-    if other_col.button("Tải file khác", icon=":material/upload_file:", use_container_width=True):
-        st.session_state[_NONCE_KEY] = st.session_state.get(_NONCE_KEY, 0) + 1
-        set_context(upload_result=None)
-        st.rerun()
 
 
 page_shell("Tải lên", "Tải file CSV hoặc Excel lên để bắt đầu làm sạch")
 
-projects, error = safe_call("Đang tải danh sách project…", list_projects, get_token())
+projects, error = safe_call("Đang tải danh sách dự án…", list_projects, get_token())
 if error is not None:
     error_state(error, key="upload_projects")
     st.stop()
@@ -135,9 +162,9 @@ if error is not None:
 if not projects:
     empty_state(
         "folder_open",
-        "Bạn chưa có project nào",
-        "Dataset được lưu trong project. Hãy tạo project trước khi tải dữ liệu.",
-        cta_label="Đến Dashboard để tạo project",
+        "Bạn chưa có dự án nào",
+        "Dataset được lưu trong dự án. Hãy tạo dự án trước khi tải dữ liệu.",
+        cta_label="Đến Dự án để tạo dự án",
         cta_page="dashboard",
     )
     st.stop()
@@ -145,32 +172,67 @@ if not projects:
 context = get_context()
 result = context.get("upload_result")
 projects = sorted(projects, key=lambda p: p["created_at"], reverse=True)
+project_ids = [project["id"] for project in projects]
+project_names = {project["id"]: project["name"] for project in projects}
+if context.get("project_id") in project_ids:
+    selected_project_id = context["project_id"]
+    if st.session_state.get("upload_project") != selected_project_id:
+        st.session_state["upload_project"] = selected_project_id
 
-if result is None:
+upload_col, result_col = st.columns([1, 1.35], gap="large")
+with upload_col:
     with section(
         "Tải file lên",
         caption=f"Hỗ trợ file CSV và Excel (.xlsx), tối đa {MAX_UPLOAD_MB} MB.",
     ):
-        ids = [p["id"] for p in projects]
-        names = {p["id"]: p["name"] for p in projects}
-        default = ids.index(context["project_id"]) if context.get("project_id") in ids else 0
         project_id = st.selectbox(
-            "Project", ids, index=default, format_func=names.get, key="upload_project"
+            "Dự án",
+            project_ids,
+            format_func=project_names.get,
+            key="upload_project",
+            on_change=_change_upload_project,
+            args=(project_names,),
+            disabled=result is not None,
         )
-        uploaded = st.file_uploader(
-            "Chọn file",
-            type=_ACCEPTED_TYPES,
-            key=f"upload_file_{st.session_state.get(_NONCE_KEY, 0)}",
-        )
-        if st.button(
-            "Tải lên",
-            type="primary",
-            icon=":material/upload:",
-            disabled=uploaded is None,
-        ):
-            _do_upload(next(p for p in projects if p["id"] == project_id), uploaded)
-else:
-    _show_result(result)
+        if result is None:
+            uploaded = st.file_uploader(
+                "Chọn file",
+                type=_ACCEPTED_TYPES,
+                key=f"upload_file_{st.session_state.get(_NONCE_KEY, 0)}",
+            )
+            if uploaded is not None:
+                st.caption(f"{uploaded.name} · {format_bytes(uploaded.size)}")
+            if st.button(
+                "Tải lên",
+                type="primary",
+                icon=":material/upload:",
+                disabled=uploaded is None,
+                use_container_width=True,
+            ):
+                selected_project = next(p for p in projects if p["id"] == project_id)
+                _do_upload(selected_project, uploaded)
+        else:
+            st.success(result["dataset"]["original_filename"])
+            if st.button("Tải file khác", icon=":material/upload_file:", use_container_width=True):
+                st.session_state[_NONCE_KEY] = st.session_state.get(_NONCE_KEY, 0) + 1
+                set_context(upload_result=None)
+                st.rerun()
 
-with st.expander("Mở dataset đã tải lên trước đó"):
-    open_dataset_form("upload_open")
+    with st.expander("Mở dataset đã tải lên trước đó"):
+        open_dataset_form("upload_open")
+
+with result_col:
+    if result is not None:
+        _show_result(result)
+    else:
+        with section("Thông tin file"):
+            uploaded = st.session_state.get(
+                f"upload_file_{st.session_state.get(_NONCE_KEY, 0)}"
+            )
+            if uploaded is None:
+                st.caption("Chọn file để xem thông tin và tải dữ liệu lên.")
+            else:
+                st.markdown(f"**{uploaded.name}**")
+                st.caption(f"Dung lượng: {format_bytes(uploaded.size)}")
+                st.caption(f"Loại file: {uploaded.type or 'Không xác định'}")
+                st.info("Sau khi tải lên, dữ liệu xem trước sẽ hiển thị tại đây.")

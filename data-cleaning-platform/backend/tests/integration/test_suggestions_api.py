@@ -373,3 +373,75 @@ def test_suggestion_rows_store_valid_rulesets(client, db, user_headers):
 
     for row in db.scalars(select(Suggestion)):
         assert RuleSet.model_validate(row.proposed_rule).steps
+
+
+# ---------------------------------------------------------------- header X-AI-Status
+
+
+def _status(response):
+    return response.headers.get("X-AI-Status")
+
+
+def test_ai_status_used_when_ai_answers(client, user_headers, monkeypatch):
+    _use_ai(monkeypatch, FakeAI(data=_ai_payload(None)))
+    version_id = _upload(client, user_headers)
+    assert _status(_generate(client, user_headers, version_id)) == "used"
+    listing = client.get(f"/api/v1/suggestions/by-version/{version_id}", headers=user_headers)
+    assert _status(listing) == "used"
+
+
+def test_ai_status_used_even_when_ai_proposes_nothing(client, user_headers, monkeypatch):
+    _use_ai(monkeypatch, FakeAI(data={"suggestions": []}))
+    assert _status(_generate(client, user_headers, _upload(client, user_headers))) == "used"
+
+
+def test_ai_status_fallback_when_ai_fails(client, user_headers, monkeypatch):
+    _use_ai(monkeypatch, FakeAI(error=AIError("Hết thời gian chờ AI.", latency_ms=5)))
+    version_id = _upload(client, user_headers)
+    response = _generate(client, user_headers, version_id)
+    assert _status(response) == "fallback" and response.json()  # vẫn có gợi ý từ quy tắc
+    listing = client.get(f"/api/v1/suggestions/by-version/{version_id}", headers=user_headers)
+    assert _status(listing) is None  # có khóa nhưng không có gợi ý AI: không khẳng định
+
+
+def test_ai_status_disabled_without_key_makes_no_call_and_no_log(
+    client, db, user_headers, monkeypatch
+):
+    fake = _use_ai(monkeypatch, FakeAI(data=_ai_payload(None), configured=False))
+    version_id = _upload(client, user_headers)
+    response = _generate(client, user_headers, version_id)
+    assert _status(response) == "disabled" and response.json()
+    listing = client.get(f"/api/v1/suggestions/by-version/{version_id}", headers=user_headers)
+    assert _status(listing) == "disabled"
+    assert fake.prompts == [] and db.scalar(select(AIRequest.id)) is None
+
+
+def test_ai_status_does_not_change_response_body(client, user_headers, monkeypatch):
+    _use_ai(monkeypatch, FakeAI(data=_ai_payload(None), configured=False))
+    body = _generate(client, user_headers, _upload(client, user_headers)).json()
+    assert isinstance(body, list) and "ai_status" not in body[0]
+
+
+def test_mapping_ai_status(client, user_headers, monkeypatch):
+    content = b"ma_so,quoc_gia,cot_la\n1,VN,x\n"
+    version_id = _upload(client, user_headers, content, "m.csv")
+    url = f"/api/v1/mapping/{version_id}/suggest"
+    targets = ["ma_khach_hang", "country"]
+
+    _use_ai(monkeypatch, FakeAI(data={"mapping": {"ma_so": "ma_khach_hang"}}))
+    assert _status(client.post(url, json=targets, headers=user_headers)) == "used"
+
+    _use_ai(monkeypatch, FakeAI(error=AIError("Lỗi mạng.", latency_ms=5)))
+    assert _status(client.post(url, json=targets, headers=user_headers)) == "fallback"
+
+    _use_ai(monkeypatch, FakeAI(data={"mapping": {}}, configured=False))
+    assert _status(client.post(url, json=targets, headers=user_headers)) == "disabled"
+
+
+def test_mapping_ai_status_absent_when_nothing_to_ask(client, user_headers, monkeypatch):
+    version_id = _upload(client, user_headers, b"ho_ten,email\nA,a@x.vn\n", "m.csv")
+    _use_ai(monkeypatch, FakeAI(data={"mapping": {}}))
+    response = client.post(
+        f"/api/v1/mapping/{version_id}/suggest", json=["ho_ten", "email"], headers=user_headers
+    )
+    assert _status(response) is None

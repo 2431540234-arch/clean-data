@@ -17,6 +17,12 @@ logger = logging.getLogger(__name__)
 
 MAX_ERROR_LENGTH = 300
 
+# Trạng thái AI của một lần sinh gợi ý/mapping, trả cho client ở header X-AI-Status.
+AI_STATUS_HEADER = "X-AI-Status"
+AI_USED = "used"  # AI đã trả lời
+AI_DISABLED = "disabled"  # chưa có khóa API: không gọi AI, không ghi ai_requests
+AI_FALLBACK = "fallback"  # có khóa nhưng AI lỗi/hết giờ: đã dùng bộ quy tắc
+
 
 def get_client() -> AIClient:
     """Tạo client AI theo cấu hình hiện tại (test thay hàm này bằng client giả)."""

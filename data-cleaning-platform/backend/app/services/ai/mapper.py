@@ -3,7 +3,7 @@
 from sqlalchemy.orm import Session
 
 from app.services.ai.prompts import MAPPING_SYSTEM_PROMPT, build_mapping_prompt
-from app.services.ai.service import call_ai
+from app.services.ai.service import AI_DISABLED, AI_FALLBACK, AI_USED, ai_available, call_ai
 
 
 def suggest_column_mapping_with_ai(
@@ -11,14 +11,17 @@ def suggest_column_mapping_with_ai(
     user_id: int | None,
     unmatched_columns: list[str],
     known_schema: list[str],
-) -> dict[str, str | None]:
+) -> tuple[dict[str, str | None], str | None]:
     """Gợi ý mapping cho các cột chưa khớp được bằng quy tắc; chỉ gửi TÊN cột, không gửi dữ liệu.
 
-    Trả {} khi AI không dùng được. Kết quả được lọc chặt: chỉ nhận cột nguồn đã hỏi, cột đích phải
-    nằm trong known_schema, và mỗi cột đích chỉ dùng một lần.
+    Trả ({}, trạng thái AI) khi AI không dùng được; trạng thái None nếu không cần hỏi AI.
+    Kết quả được lọc chặt: chỉ nhận cột nguồn đã hỏi, cột đích phải nằm trong known_schema,
+    và mỗi cột đích chỉ dùng một lần.
     """
     if not unmatched_columns or not known_schema:
-        return {}
+        return {}, None
+    if not ai_available():
+        return {}, AI_DISABLED
     data = call_ai(
         db,
         user_id,
@@ -26,9 +29,11 @@ def suggest_column_mapping_with_ai(
         MAPPING_SYSTEM_PROMPT,
         build_mapping_prompt(unmatched_columns, known_schema),
     )
-    raw = data.get("mapping") if isinstance(data, dict) else None
+    if data is None:
+        return {}, AI_FALLBACK
+    raw = data.get("mapping")
     if not isinstance(raw, dict):
-        return {}
+        return {}, AI_USED
     allowed_targets = set(known_schema)
     result: dict[str, str | None] = {}
     used: set[str] = set()
@@ -37,4 +42,4 @@ def suggest_column_mapping_with_ai(
         if isinstance(target, str) and target in allowed_targets and target not in used:
             result[source] = target
             used.add(target)
-    return result
+    return result, AI_USED
